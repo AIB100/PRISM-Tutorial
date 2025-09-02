@@ -1,132 +1,256 @@
-/* PRISM Documentation - Conservative Fix for Material Theme */
+/* PRISM Documentation - Complete Optimized Styles */
 
 /* ============================================
-   Variables
+   CSS Custom Properties
    ============================================ */
 :root {
-  /* Custom accent colors */
+  /* Brand Colors */
   --prism-accent: #667eea;
   --prism-accent-hover: #5a67d8;
+  --prism-accent-light: rgba(102, 126, 234, 0.1);
   --prism-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   --prism-gradient-subtle: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+  
+  /* Navigation */
+  --nav-item-radius: 8px;
+  --nav-item-padding: 8px 12px;
+  --nav-indent: 12px;
+  --nav-transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --nav-hover-bg: rgba(102, 126, 234, 0.06);
+  --nav-active-bg: rgba(102, 126, 234, 0.12);
+  --nav-border: rgba(0, 0, 0, 0.06);
+  
+  /* Layout */
+  --content-padding-bottom: 120px;
+  --footer-margin-top: 80px;
+  
+  /* Borders & Backgrounds */
+  --border-light: #e1e4e8;
+  --border-dark: rgba(255, 255, 255, 0.1);
+  --bg-light: #f6f8fa;
+  --bg-dark: rgba(255, 255, 255, 0.05);
+  
+  /* Typography */
+  --text-secondary: #586069;
+  --text-secondary-dark: #adbac7;
+  
+  /* Transitions */
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
+  --transition-smooth: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark mode overrides */
+[data-md-color-scheme="slate"] {
+  --nav-hover-bg: rgba(102, 126, 234, 0.15);
+  --nav-active-bg: rgba(102, 126, 234, 0.25);
+  --nav-border: rgba(255, 255, 255, 0.08);
+  --border-light: rgba(255, 255, 255, 0.1);
+  --bg-light: rgba(255, 255, 255, 0.05);
+  --text-secondary: #adbac7;
 }
 
 /* ============================================
-   FIX: Bottom Content Cutoff
+   Layout & Content Spacing
    ============================================ */
+html {
+  scroll-padding-bottom: 100px;
+  scroll-behavior: smooth;
+}
 
-/* Add padding to content to prevent cutoff */
+.md-main {
+  padding-bottom: var(--content-padding-bottom) !important;
+}
+
 .md-content__inner {
-  padding-bottom: 120px !important;
+  min-height: calc(100vh - 200px);
+  padding-bottom: var(--content-padding-bottom) !important;
 }
 
-/* Add margin to last element */
-.md-content__inner > :last-child {
-  margin-bottom: 80px !important;
+.md-content__inner > :last-child,
+.md-typeset > *:last-child {
+  margin-bottom: var(--footer-margin-top) !important;
 }
 
-/* Ensure article has enough bottom space */
-.md-content article {
-  padding-bottom: 100px !important;
-}
-
-/* Make sure footer doesn't overlap */
 .md-footer {
-  margin-top: 50px !important;
   position: relative !important;
-}
-
-.md-footer-meta {
-  position: relative !important;
-}
-
-/* Add spacer after main content */
-.md-main::after {
-  content: "";
-  display: block;
-  height: 100px;
+  margin-top: var(--footer-margin-top) !important;
+  border-top: 1px solid var(--border-light);
   clear: both;
 }
 
 /* ============================================
-   Navigation Sidebar Enhancements
+   Enhanced Navigation Sidebar
    ============================================ */
 
-/* Ensure sidebar has proper scrolling */
+/* Sidebar container with gradient */
+.md-sidebar--primary {
+  background: linear-gradient(180deg, 
+    rgba(255, 255, 255, 0) 0%, 
+    rgba(102, 126, 234, 0.02) 100%);
+}
+
+[data-md-color-scheme="slate"] .md-sidebar--primary {
+  background: linear-gradient(180deg, 
+    rgba(0, 0, 0, 0) 0%, 
+    rgba(102, 126, 234, 0.05) 100%);
+}
+
+/* Scrollable area with fade effect */
 .md-sidebar__scrollwrap {
-  padding-bottom: 100px !important;
-}
-
-/* Style navigation items */
-.md-nav--primary .md-nav__link {
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  margin: 2px 4px;
-}
-
-.md-nav--primary .md-nav__link:hover {
-  background: rgba(102, 126, 234, 0.08);
-  color: var(--prism-accent);
-}
-
-/* Active navigation item */
-.md-nav--primary .md-nav__link--active {
-  background: var(--prism-gradient-subtle);
-  color: var(--prism-accent);
-  font-weight: 600;
+  padding-bottom: 100px;
   position: relative;
 }
 
+.md-sidebar__scrollwrap::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  background: linear-gradient(180deg, 
+    rgba(255, 255, 255, 0) 0%, 
+    rgba(255, 255, 255, 1) 100%);
+  pointer-events: none;
+}
+
+[data-md-color-scheme="slate"] .md-sidebar__scrollwrap::after {
+  background: linear-gradient(180deg, 
+    rgba(30, 30, 30, 0) 0%, 
+    rgba(30, 30, 30, 1) 100%);
+}
+
+/* Navigation items */
+.md-nav--primary .md-nav__item {
+  margin: 2px 0;
+}
+
+.md-nav--primary .md-nav__link {
+  position: relative;
+  padding: var(--nav-item-padding);
+  margin: 2px 8px;
+  border-radius: var(--nav-item-radius);
+  transition: var(--nav-transition);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+/* Hover effect */
+.md-nav--primary .md-nav__link:hover {
+  background: var(--nav-hover-bg);
+  color: var(--prism-accent);
+  transform: translateX(2px);
+  box-shadow: inset 0 0 0 1px rgba(102, 126, 234, 0.1);
+}
+
+/* Active state */
+.md-nav--primary .md-nav__link--active {
+  background: var(--nav-active-bg);
+  color: var(--prism-accent);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(102, 126, 234, 0.2),
+              0 2px 4px rgba(102, 126, 234, 0.1);
+}
+
+/* Active indicator bar */
 .md-nav--primary .md-nav__link--active::before {
   content: "";
   position: absolute;
   left: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0;
+  bottom: 0;
   width: 3px;
-  height: 60%;
-  background: var(--prism-accent);
-  border-radius: 0 3px 3px 0;
+  background: var(--prism-gradient);
+  animation: slideIn 0.3s ease;
 }
 
-/* Nested navigation styling */
+/* Nested navigation */
 .md-nav--primary .md-nav__item--nested .md-nav {
-  margin-left: 8px;
-  padding-left: 8px;
-  border-left: 1px solid rgba(0, 0, 0, 0.07);
+  margin-left: var(--nav-indent);
+  padding-left: var(--nav-indent);
+  position: relative;
 }
 
-[data-md-color-scheme="slate"] .md-nav--primary .md-nav__item--nested .md-nav {
-  border-left-color: rgba(255, 255, 255, 0.07);
+/* Vertical guide line */
+.md-nav--primary .md-nav__item--nested .md-nav::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--nav-border);
+  transition: background 0.3s ease;
+}
+
+/* Nested item connection lines */
+.md-nav--primary .md-nav__item--nested .md-nav .md-nav__link::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  width: 8px;
+  height: 1px;
+  background: var(--nav-border);
+  transition: all 0.3s ease;
+}
+
+.md-nav--primary .md-nav__item--nested .md-nav .md-nav__link:hover::before {
+  width: 12px;
+  background: var(--prism-accent);
+}
+
+/* TOC Sidebar */
+.md-nav--secondary .md-nav__link {
+  padding: 4px 8px;
+  margin: 1px 0;
+  border-radius: 4px;
+  transition: var(--transition-fast);
+  position: relative;
+}
+
+.md-nav--secondary .md-nav__link:hover {
+  background: var(--nav-hover-bg);
+  color: var(--prism-accent);
+  padding-left: 12px;
+}
+
+.md-nav--secondary .md-nav__link--active {
+  color: var(--prism-accent);
+  font-weight: 600;
+  background: var(--nav-active-bg);
+}
+
+.md-nav--secondary .md-nav__link--active::before {
+  content: "▸";
+  position: absolute;
+  left: -8px;
+  color: var(--prism-accent);
+  animation: pulse 2s ease-in-out infinite;
 }
 
 /* ============================================
-   Typography Enhancements
+   Typography
    ============================================ */
-
-/* Improve heading styles */
 .md-typeset h1 {
-  border-bottom: 2px solid #e1e4e8;
+  border-bottom: 2px solid var(--border-light);
   padding-bottom: 12px;
   margin-bottom: 24px;
 }
 
 .md-typeset h2 {
-  border-bottom: 1px solid #e1e4e8;
+  border-bottom: 1px solid var(--border-light);
   padding-bottom: 8px;
   margin-top: 32px;
   margin-bottom: 16px;
 }
 
-[data-md-color-scheme="slate"] .md-typeset h1,
-[data-md-color-scheme="slate"] .md-typeset h2 {
-  border-bottom-color: rgba(255, 255, 255, 0.1);
-}
-
-/* Links */
 .md-typeset a {
   color: var(--prism-accent);
-  transition: opacity 0.2s;
+  transition: opacity var(--transition-fast);
 }
 
 .md-typeset a:hover {
@@ -134,45 +258,27 @@
 }
 
 /* ============================================
-   Code Blocks
+   Code Blocks & Tables
    ============================================ */
-
 .md-typeset pre {
-  border: 1px solid #e1e4e8;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
 }
 
-[data-md-color-scheme="slate"] .md-typeset pre {
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-/* ============================================
-   Tables
-   ============================================ */
-
 .md-typeset table {
-  border: 1px solid #e1e4e8;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   overflow: hidden;
 }
 
 .md-typeset table th {
-  background: #f6f8fa;
+  background: var(--bg-light);
   font-weight: 600;
 }
 
-[data-md-color-scheme="slate"] .md-typeset table {
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-[data-md-color-scheme="slate"] .md-typeset table th {
-  background: rgba(255, 255, 255, 0.05);
-}
-
 /* ============================================
-   Cards and Feature Grids
+   Feature Cards
    ============================================ */
-
 .feature-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -182,15 +288,10 @@
 
 .feature-card {
   padding: 20px;
-  background: #f6f8fa;
+  background: var(--bg-light);
   border-radius: 8px;
-  border: 1px solid #e1e4e8;
-  transition: all 0.3s ease;
-}
-
-[data-md-color-scheme="slate"] .feature-card {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-light);
+  transition: var(--transition-normal);
 }
 
 .feature-card:hover {
@@ -207,22 +308,17 @@
 
 .feature-card p {
   margin: 0;
-  color: #586069;
+  color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.6;
-}
-
-[data-md-color-scheme="slate"] .feature-card p {
-  color: #adbac7;
 }
 
 /* ============================================
    Buttons
    ============================================ */
-
 .md-button {
   border-radius: 6px;
-  transition: all 0.2s;
+  transition: var(--transition-fast);
 }
 
 .md-button--primary {
@@ -233,12 +329,13 @@
 .md-button--primary:hover {
   background: var(--prism-accent-hover);
   border-color: var(--prism-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
 }
 
 /* ============================================
    Admonitions
    ============================================ */
-
 .admonition {
   border-radius: 6px;
   overflow: hidden;
@@ -275,22 +372,41 @@
   color: #a40e26;
 }
 
-/* ============================================
-   Search Enhancement
-   ============================================ */
+.admonition.info {
+  border-color: #0969da;
+  background: #e7f2ff;
+}
 
-.md-search__form {
+.admonition.info .admonition-title {
+  background: #cae8ff;
+  color: #0550ae;
+}
+
+/* ============================================
+   Search
+   ============================================ */
+.md-search__form,
+.md-search__input {
   border-radius: 8px;
 }
 
 .md-search__input {
-  border-radius: 8px;
+  background: var(--bg-light);
+  transition: var(--transition-fast);
+}
+
+.md-search__input:focus {
+  background: white;
+  box-shadow: 0 0 0 2px var(--prism-accent-light);
+}
+
+[data-md-color-scheme="slate"] .md-search__input:focus {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* ============================================
    Scrollbar
    ============================================ */
-
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -298,11 +414,13 @@
 
 ::-webkit-scrollbar-track {
   background: #f0f0f0;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
   background: #c0c0c0;
   border-radius: 4px;
+  transition: background var(--transition-fast);
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -317,66 +435,86 @@
   background: #606060;
 }
 
-/* ============================================
-   CRITICAL FIX: Prevent Bottom Cutoff
-   ============================================ */
-
-/* Multiple layers of protection against bottom cutoff */
-html {
-  scroll-padding-bottom: 100px;
-}
-
-body {
-  padding-bottom: 0 !important;
-  margin-bottom: 0 !important;
-}
-
-/* Ensure main content area has enough space */
-.md-main {
-  padding-bottom: 100px !important;
-}
-
-/* Extra padding for content wrapper */
-.md-content {
-  padding-bottom: 80px !important;
-}
-
-/* Force space before footer */
-.md-content::after {
-  content: "";
-  display: block;
-  height: 100px;
-  clear: both;
-}
-
-/* Make absolutely sure last element is visible */
-.md-typeset > *:last-child {
-  margin-bottom: 100px !important;
-  padding-bottom: 50px !important;
-}
-
-/* Footer should never be fixed */
-.md-footer,
-.md-footer-nav,
-.md-footer-meta {
-  position: relative !important;
-  bottom: auto !important;
-}
-
-/* Add visual separator before footer */
-.md-footer {
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-  margin-top: 80px !important;
-}
-
-[data-md-color-scheme="slate"] .md-footer {
-  border-top-color: rgba(255, 255, 255, 0.1);
+[data-md-color-scheme="slate"] ::-webkit-scrollbar-thumb:hover {
+  background: #808080;
 }
 
 /* ============================================
-   Responsive Adjustments
+   Animations
    ============================================ */
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
 
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(2px);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Apply fadeInUp to cards on page load */
+.feature-card {
+  animation: fadeInUp 0.5s ease forwards;
+  animation-delay: calc(var(--card-index, 0) * 0.1s);
+}
+
+/* ============================================
+   Focus & Accessibility
+   ============================================ */
+*:focus-visible {
+  outline: 2px solid var(--prism-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.md-nav__link:focus-visible {
+  background: var(--nav-hover-bg);
+}
+
+/* Skip to content link */
+.md-skip {
+  background: var(--prism-accent);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+  transform: translateY(-100px);
+  transition: transform var(--transition-fast);
+}
+
+.md-skip:focus {
+  transform: translateY(0);
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
 @media (max-width: 960px) {
   .md-content__inner {
     padding-bottom: 150px !important;
@@ -385,26 +523,87 @@ body {
   .feature-grid {
     grid-template-columns: 1fr;
   }
+  
+  .md-nav--primary .md-nav__link {
+    padding: 10px 16px;
+    margin: 2px 4px;
+  }
 }
 
 @media (max-width: 600px) {
   .md-content__inner {
     padding-bottom: 120px !important;
   }
+  
+  .feature-card {
+    padding: 16px;
+  }
+  
+  .md-nav--primary .md-nav__item--nested .md-nav {
+    margin-left: 8px;
+    padding-left: 8px;
+  }
 }
 
 /* ============================================
-   Final Override for Stubborn Elements
+   Print Styles
    ============================================ */
-
-/* Use high specificity to ensure these rules apply */
-body .md-container .md-main .md-content .md-content__inner {
-  min-height: calc(100vh - 200px) !important;
-  padding-bottom: 150px !important;
+@media print {
+  .md-sidebar,
+  .md-header,
+  .md-footer,
+  .md-tabs {
+    display: none !important;
+  }
+  
+  .md-content {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  .md-typeset a::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    opacity: 0.7;
+  }
 }
 
-/* Absolutely ensure footer stays at bottom */
-body > .md-container > .md-footer {
-  margin-top: 100px !important;
-  clear: both !important;
+/* ============================================
+   Utility Classes
+   ============================================ */
+.text-center {
+  text-align: center;
 }
+
+.mt-4 {
+  margin-top: 2rem;
+}
+
+.mb-4 {
+  margin-bottom: 2rem;
+}
+
+.grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.flex {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Highlight effect */
+.highlight {
+  background: linear-gradient(120deg, var(--prism-accent-light) 0%, var(--prism-accent-light) 100%);
+  background-repeat: no-repeat;
+  background-size: 100% 40%;
+  background-position: 0 60%;
+  transition: background-size 0.25s ease-in;
+}
+
+.highlight:hover {
+  background-size: 100% 100%;
+}
+
