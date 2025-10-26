@@ -1,61 +1,419 @@
-# Building Systems
+# Building Protein-Ligand Systems
 
-This guide covers the complete process of building protein-ligand systems for molecular dynamics simulations using PRISM.
+PRISM automates the complex workflow of preparing protein-ligand systems for molecular dynamics simulations. This guide covers all aspects of system building.
+
+## Overview
+
+PRISM's automated building process includes:
+
+1. **Ligand Parameterization** - Generate force field parameters for small molecules
+2. **Protein Preparation** - Clean and prepare protein structure
+3. **System Assembly** - Combine protein and ligand
+4. **Solvation** - Add water box and ions
+5. **Topology Generation** - Create GROMACS input files
+6. **MDP File Creation** - Generate simulation parameters
+
+All of this happens automatically with a single command!
 
 ## Quick Start
 
-### Basic System Building
+### Command-Line Interface
 
 The simplest way to build a system:
 
 ```bash
-# Build with defaults (GAFF, amber99sb, tip3p)
+# Default: GAFF ligand FF, AMBER99SB protein, TIP3P water
 prism protein.pdb ligand.mol2 -o my_system
 
-# Build with OpenFF for ligand
-prism protein.pdb ligand.sdf -o my_system --ligand-forcefield openff
-
-# Build with custom force field
-prism protein.pdb ligand.mol2 -o my_system --forcefield amber14sb --water tip4p
+# With different force fields
+prism protein.pdb ligand.sdf -o my_system \
+  --ligand-forcefield openff \
+  --forcefield amber14sb \
+  --water tip4p
 ```
 
-### Using Python API
+### Python API
+
+For programmatic control:
 
 ```python
 import prism
 
-# Create system
-system = prism.PRISMSystem(
-    "protein.pdb",
-    "ligand.mol2",
-    output_dir="my_system"
-)
-
-# Build
+# Method 1: High-level API (recommended)
+system = prism.system("protein.pdb", "ligand.mol2", output_dir="my_system")
 system.build()
 
-# Get output files
-files = system.get_output_files()
-print(f"System files: {files['gromacs_directory']}")
+# Method 2: Using PRISMBuilder directly
+from prism import PRISMBuilder
+
+builder = PRISMBuilder(
+    protein_path="protein.pdb",
+    ligand_path="ligand.mol2",
+    output_dir="my_system",
+    ligand_forcefield="gaff",
+    forcefield="amber99sb",
+    water_model="tip3p"
+)
+builder.run()
 ```
 
-## The Building Process
+---
 
-PRISM performs these steps automatically:
+## The Building Workflow
 
-1. **Force field generation** for ligand
-2. **Protein cleaning** and preparation
-3. **Complex assembly**
-4. **Solvation** in water box
-5. **Ion addition** for neutralization
-6. **Topology generation**
-7. **MDP file creation**
+### What PRISM Does Automatically
 
-## Step-by-Step Building
+When you run `prism protein.pdb ligand.mol2 -o output`, PRISM executes this workflow:
 
-### Step 1: Force Field Generation
+#### 1. Configuration Setup
+- Loads default or custom configuration
+- Validates force field availability
+- Sets up output directory structure
 
-PRISM generates ligand parameters automatically:
+#### 2. Ligand Force Field Generation
+Depending on the chosen force field:
+
+**GAFF/GAFF2:**
+```
+ligand.mol2 → antechamber → AM1-BCC charges
+           → parmchk2 → missing parameters
+           → ACPYPE → GROMACS format (.itp, .gro)
+```
+
+**OpenFF:**
+```
+ligand.sdf → OpenFF Toolkit → force field assignment
+          → OpenFF Interchange → GROMACS format
+```
+
+**OPLS-AA:**
+```
+ligand.mol2 → LigParGen API → server-side parameterization
+           → Download results → GROMACS format
+```
+
+**CGenFF:**
+```
+Downloaded files → Conversion scripts → GROMACS format
+```
+
+Output: `LIG.amb2gmx/` or `LIG.openff2gmx/` directory with:
+- `LIG.itp` - Ligand topology
+- `LIG.gro` - Ligand coordinates
+- `atomtypes_LIG.itp` - Atom type definitions
+- `posre_LIG.itp` - Position restraints
+
+#### 3. Protein Preparation
+
+**Intelligent Cleaning:**
+```python
+# What PRISM does:
+- Remove HETATM records (except ligand)
+- Smart metal ion handling (keep Zn2+/Ca2+/Mg2+, remove Na+/Cl-)
+- Remove crystallization artifacts (GOL, EDO, PEG, etc.)
+- Fix terminal residue naming (ACE, NME, NH2, etc.)
+- Optional: Protonation state optimization (via Meeko/PrepWizard)
+```
+
+**Metal Ion Handling:**
+PRISM has three modes:
+- `smart` (default): Keep structural metals (Zn, Mg, Ca, Fe), remove buffer ions
+- `keep_all`: Keep all metals
+- `remove_all`: Remove all metals
+
+**Protonation Optimization (Optional):**
+```yaml
+# In config file
+protonation:
+  optimize: true
+  ph: 7.4
+  his_state: auto  # or HID/HIE/HIP
+```
+
+Output: `protein_clean.pdb` or `protein_protonated.pdb`
+
+#### 4. System Assembly with GROMACS
+
+```bash
+# PRISM runs these GROMACS commands internally:
+
+# 1. Process protein topology
+gmx pdb2gmx -f protein_clean.pdb -o protein_processed.gro \
+  -p topol.top -ff amber99sb -water tip3p
+
+# 2. Combine protein and ligand
+# (Manual coordinate merging + topology inclusion)
+
+# 3. Define box
+gmx editconf -f complex.gro -o boxed.gro \
+  -c -d 1.5 -bt cubic
+
+# 4. Add solvent
+gmx solvate -cp boxed.gro -cs spc216.gro \
+  -o solv.gro -p topol.top
+
+# 5. Add ions (neutralize + 0.15 M NaCl)
+gmx genion -s ions.tpr -o solv_ions.gro -p topol.top \
+  -neutral -conc 0.15
+```
+
+Output: `GMX_PROLIG_MD/` directory with:
+- `solv_ions.gro` - Complete solvated system
+- `topol.top` - System topology
+
+#### 5. MDP File Generation
+
+PRISM generates optimized MDP files for each stage:
+
+**Energy Minimization (em.mdp):**
+```
+integrator = steep
+emtol = 200.0
+nsteps = 10000
+```
+
+**NVT Equilibration (nvt.mdp):**
+```
+integrator = md
+dt = 0.002
+nsteps = 250000  ; 500 ps
+tcoupl = V-rescale
+ref_t = 310
+```
+
+**NPT Equilibration (npt.mdp):**
+```
+pcoupl = C-rescale
+ref_p = 1.0
+```
+
+**Production MD (md.mdp):**
+```
+nsteps = 250000000  ; 500 ns default
+nstxout-compressed = 250000  ; save every 500 ps
+```
+
+#### 6. Run Script Generation
+
+Creates `localrun.sh` with checkpoint restart support:
+```bash
+#!/bin/bash
+# Auto-generated by PRISM
+
+# Energy Minimization
+if [ -f ./em/em.gro ]; then
+    echo "EM already completed"
+else
+    gmx grompp -f ../mdps/em.mdp ...
+    gmx mdrun -deffnm ./em/em -gpu_id 0 ...
+fi
+
+# NVT, NPT, Production...
+```
+
+---
+
+## Advanced Building Options
+
+### Force Field Selection
+
+#### Ligand Force Fields (8+ Options)
+
+```bash
+# GAFF - General AMBER Force Field (default)
+prism protein.pdb ligand.mol2 -o output --ligand-forcefield gaff
+
+# GAFF2 - Improved version
+prism protein.pdb ligand.mol2 -o output --ligand-forcefield gaff2
+
+# OpenFF - Modern, data-driven
+prism protein.pdb ligand.sdf -o output --ligand-forcefield openff
+
+# CGenFF - CHARMM General Force Field
+prism protein.pdb ligand.mol2 -o output --ligand-forcefield cgenff \
+  --forcefield-path /path/to/cgenff_download
+
+# OPLS-AA - Via LigParGen server
+prism protein.pdb ligand.mol2 -o output --ligand-forcefield opls
+
+# MMFF - Via SwissParam
+prism protein.pdb ligand.mol2 -o output --ligand-forcefield mmff
+
+# MATCH - Via SwissParam
+prism protein.pdb ligand.mol2 -o output --ligand-forcefield match
+
+# Hybrid MMFF-MATCH
+prism protein.pdb ligand.mol2 -o output --ligand-forcefield hybrid
+```
+
+#### Protein Force Fields
+
+```bash
+# List available force fields
+prism --list-forcefields
+
+# Common options:
+--forcefield amber99sb      # Default, well-tested
+--forcefield amber99sb-ildn # Improved side chains
+--forcefield amber14sb      # Recommended for most cases
+--forcefield charmm36       # For membranes/lipids
+--forcefield oplsaa         # For small molecule interactions
+```
+
+### Box Configuration
+
+```bash
+# Box shape
+--box-shape cubic          # Default, simple
+--box-shape dodecahedron   # ~29% fewer water molecules
+--box-shape octahedron     # Alternative
+
+# Box distance (distance from protein to edge)
+--box-distance 1.0   # Minimal (faster but may have issues)
+--box-distance 1.5   # Default (recommended)
+--box-distance 2.0   # Conservative (for unfolding studies)
+--box-distance 3.0   # Very large (for long-range effects)
+
+# Centering
+--no-center          # Don't center protein in box
+```
+
+### Solvation and Ions
+
+```bash
+# Water model
+--water tip3p   # Default, fastest
+--water tip4p   # Better properties, slightly slower
+--water spce    # SPC/E, good diffusion
+
+# Salt concentration
+--salt-concentration 0.0    # No salt
+--salt-concentration 0.15   # Physiological (default)
+--salt-concentration 0.5    # High salt
+
+# Ion types
+--positive-ion NA   # Sodium (default)
+--positive-ion K    # Potassium
+--negative-ion CL   # Chloride (default)
+
+# Neutralization
+--no-neutralize     # Don't neutralize (keep system charged)
+```
+
+### Ligand Charge
+
+```bash
+# For charged ligands
+--ligand-charge 0    # Neutral (default)
+--ligand-charge 1    # +1 charge
+--ligand-charge -1   # -1 charge
+--ligand-charge -2   # -2 charge
+```
+
+### Simulation Parameters
+
+```bash
+# Temperature
+--temperature 300    # Room temperature
+--temperature 310    # Body temperature (default)
+--temperature 350    # High temperature
+
+# Pressure
+--pressure 1.0       # 1 bar (default)
+
+# pH (for protonation states)
+--pH 7.0            # Neutral
+--pH 7.4            # Physiological (default)
+--pH 5.0            # Acidic
+
+# Production time
+--production-ns 100   # Short (testing)
+--production-ns 500   # Default
+--production-ns 1000  # Long (1 microsecond)
+
+# Time step
+--dt 0.001          # 1 fs (for flexible bonds)
+--dt 0.002          # 2 fs (default, with constraints)
+
+# Equilibration times
+--nvt-ps 500        # NVT time (default)
+--npt-ps 500        # NPT time (default)
+```
+
+---
+
+## Configuration Files
+
+### Using YAML Configuration
+
+For complex setups, use configuration files:
+
+```bash
+# Export default template
+prism --export-config my_config.yaml
+
+# Edit the file, then use it
+prism protein.pdb ligand.mol2 -o output --config my_config.yaml
+```
+
+### Example Configuration
+
+```yaml
+# my_config.yaml
+
+general:
+  overwrite: false
+
+box:
+  distance: 2.0
+  shape: dodecahedron
+  center: true
+
+simulation:
+  temperature: 300
+  pressure: 1.0
+  pH: 7.4
+  ligand_charge: -1
+  production_time_ns: 1000
+  dt: 0.002
+  equilibration_nvt_time_ps: 1000
+  equilibration_npt_time_ps: 1000
+
+ions:
+  neutral: true
+  concentration: 0.15
+  positive_ion: NA
+  negative_ion: CL
+
+# Protein preparation
+protein_preparation:
+  ion_handling_mode: smart  # smart, keep_all, remove_all
+  metal_distance_cutoff: 5.0
+  keep_crystal_water: false
+  remove_crystallization_artifacts: true
+
+# Protonation optimization (optional)
+protonation:
+  optimize: false
+  ph: 7.4
+  his_state: auto
+  preserve_existing_h: false
+
+output:
+  trajectory_interval_ps: 500
+  energy_interval_ps: 10
+  compressed_trajectory: true
+
+constraints:
+  algorithm: lincs
+  type: h-bonds
+```
+
+---
+
+## Step-by-Step Manual Building
+
+For fine control, build step-by-step:
 
 ```python
 from prism import PRISMBuilder
@@ -65,498 +423,213 @@ builder = PRISMBuilder(
     "protein.pdb",
     "ligand.mol2",
     "output",
-    ligand_forcefield="gaff"  # or "openff"
+    ligand_forcefield="gaff"
 )
 
-# Generate ligand force field only
+# Step 1: Generate ligand force field
 lig_ff_dir = builder.generate_ligand_forcefield()
-print(f"Ligand parameters in: {lig_ff_dir}")
-```
+print(f"Ligand FF: {lig_ff_dir}")
 
-**What happens:**
-- Charges calculated (AM1-BCC for GAFF)
-- Atom types assigned
-- Bonded parameters generated
-- GROMACS-compatible files created
+# Step 2: Clean protein
+cleaned_protein = builder.clean_protein(
+    ion_mode='smart',           # Keep structural metals
+    distance_cutoff=5.0,        # Within 5 Å of protein
+    keep_crystal_water=False,   # Remove crystal waters
+    remove_artifacts=True       # Remove GOL, EDO, etc.
+)
+print(f"Cleaned: {cleaned_protein}")
 
-### Step 2: Protein Preparation
-
-```python
-# Clean protein
-cleaned_protein = builder.clean_protein()
-```
-
-**Automatic cleaning:**
-- Removes HETATM records
-- Fixes terminal residue names
-- Handles HIE/HID/HIP histidine naming
-
-### Step 3: System Assembly
-
-```python
-# Build the complete model
+# Step 3: Build GROMACS model
 model_dir = builder.build_model(cleaned_protein)
+print(f"Model: {model_dir}")
+
+# Step 4: Generate MDP files
+builder.generate_mdp_files()
+
+# Step 5: Generate run script
+script_path = builder.generate_localrun_script()
+print(f"Script: {script_path}")
+
+# Step 6: Save configuration
+builder.save_config()
 ```
 
-**Assembly process:**
-1. Process protein with pdb2gmx
-2. Combine protein and ligand
-3. Define simulation box
-4. Add solvent
-5. Add ions
+---
 
-## Force Field Selection
+## Special Cases
 
-### Protein Force Fields
+### Charged Systems
 
-Available options depend on your GROMACS installation:
+For systems with net charge:
 
 ```bash
-# List available force fields
-prism --list-forcefields
+# Ligand with -1 charge
+prism protein.pdb ligand.mol2 -o output --ligand-charge -1
+
+# Don't neutralize (keep charge)
+prism protein.pdb ligand.mol2 -o output --no-neutralize
 ```
-
-Common choices:
-
-| Force Field | Use Case | Water Models |
-|------------|----------|--------------|
-| amber99sb | General purpose | tip3p, tip4p, spce |
-| amber14sb | Improved backbone | tip3p, tip4p |
-| amber99sb-ildn | Better side chains | tip3p, tip4p |
-| charmm36 | Widely validated | tips3p |
-| opls-aa | Good for small molecules | tip3p, tip4p, spce |
-
-### Ligand Force Fields
-
-PRISM supports two approaches:
-
-#### GAFF (General AMBER Force Field)
-
-```bash
-prism protein.pdb ligand.mol2 -o output --ligand-forcefield gaff
-```
-
-**Advantages:**
-- Well-tested
-- Good for drug-like molecules
-- Compatible with AMBER protein force fields
-
-**Requirements:**
-- AmberTools installed
-- MOL2 format input
-
-#### OpenFF (Open Force Field)
-
-```bash
-prism protein.pdb ligand.sdf -o output --ligand-forcefield openff
-```
-
-**Advantages:**
-- Modern, systematically improved
-- Better coverage of chemical space
-- Actively developed
-
-**Requirements:**
-- openff-toolkit installed
-- SDF or MOL2 format
-
-### Force Field Compatibility
-
-| Protein FF | Compatible Ligand FF | Recommended Water |
-|-----------|---------------------|-------------------|
-| amber99sb | GAFF, OpenFF | tip3p |
-| amber14sb | GAFF, OpenFF | tip3p |
-| charmm36 | CGenFF* | tips3p |
-| opls-aa | OPLS-AA* | tip4p |
-
-*Not directly supported by PRISM, requires manual setup
-
-## Box Types and Solvation
-
-### Box Shapes
-
-Configure box shape in your config file or command line:
-
-```bash
-# Cubic box (default)
-prism protein.pdb ligand.mol2 -o output --box-shape cubic
-
-# Dodecahedron (more efficient)
-prism protein.pdb ligand.mol2 -o output --box-shape dodecahedron
-
-# Set distance to box edge
-prism protein.pdb ligand.mol2 -o output --box-distance 1.5
-```
-
-### Box Size Considerations
-
-```python
-# Calculate box size needed
-import mdtraj as md
-
-# Load protein
-traj = md.load("protein.pdb")
-
-# Get dimensions
-print(f"Protein size: {traj.xyz.max(axis=1) - traj.xyz.min(axis=1)} nm")
-
-# Recommended box distance
-min_distance = 1.0  # nm (minimum)
-safe_distance = 1.5  # nm (recommended)
-large_distance = 2.0  # nm (for unfolding studies)
-```
-
-### Solvation Options
-
-```yaml
-# In configuration file
-box:
-  distance: 1.5
-  shape: dodecahedron
-  center: true
-
-ions:
-  neutral: true
-  concentration: 0.15  # Physiological salt
-```
-
-## Building Complex Systems
 
 ### Multiple Ligands
 
-For systems with multiple ligands:
+PRISM currently supports single ligand. For multiple:
 
 ```python
-# Build first ligand system
-system1 = prism.PRISMSystem("protein.pdb", "ligand1.mol2", "temp1")
+# Build each ligand separately
+system1 = prism.system("protein.pdb", "lig1.mol2", output_dir="lig1")
 system1.build()
 
-# Build second ligand system
-system2 = prism.PRISMSystem("protein.pdb", "ligand2.mol2", "temp2")
+system2 = prism.system("protein.pdb", "lig2.mol2", output_dir="lig2")
 system2.build()
 
-# Combine manually (advanced)
-# See Advanced Usage guide
+# Then manually combine topologies (advanced)
+```
+
+### Metal-Binding Proteins
+
+For proteins with essential metals:
+
+```yaml
+# config.yaml
+protein_preparation:
+  ion_handling_mode: keep_all  # Keep all metals
+  # Or specify custom metals to keep
+  keep_custom_metals: [ZN, MG, CA, FE, CU]
+```
+
+```bash
+prism protein.pdb ligand.mol2 -o output --config config.yaml
 ```
 
 ### Membrane Proteins
 
-Special considerations for membrane proteins:
+PRISM is optimized for soluble proteins. For membrane proteins:
+
+1. Use CHARMM-GUI or similar tools to build membrane
+2. Use PRISM only for ligand parameterization:
 
 ```python
-# 1. Orient protein in membrane first (use OPM, CHARMM-GUI)
-# 2. Build membrane system (outside PRISM)
-# 3. Add ligand to membrane system
-
-# Example workflow:
-# Use CHARMM-GUI for initial membrane setup
-# Extract protein-ligand complex
-# Use PRISM for ligand parameterization only
 builder = PRISMBuilder("protein.pdb", "ligand.mol2", "output")
-lig_params = builder.generate_ligand_forcefield()
-# Then integrate with membrane system
+lig_ff_dir = builder.generate_ligand_forcefield()
+# Then manually integrate ligand.itp into membrane system
 ```
 
-### Protein-Protein Complexes
+---
 
-```python
-# Prepare complex PDB with both proteins
-# Each chain should be properly labeled
-
-system = prism.PRISMSystem(
-    "protein_complex.pdb",
-    "ligand.mol2",
-    "output",
-    config={
-        'box': {'distance': 2.0},  # Larger box for complexes
-        'simulation': {'production_time_ns': 1000}
-    }
-)
-system.build()
-```
-
-## System Validation
+## Validation and Quality Control
 
 ### Check Generated Files
 
-After building, verify the output:
-
 ```python
-# Check output structure
-system = prism.PRISMSystem("protein.pdb", "ligand.mol2", "output")
+import prism
+import os
+
+system = prism.system("protein.pdb", "ligand.mol2", output_dir="output")
 system.build()
 
-# List generated files
+# List all generated files
 files = system.get_output_files()
 for name, path in files.items():
-    if os.path.exists(path):
-        print(f"✓ {name}: {path}")
-    else:
-        print(f"✗ {name}: MISSING")
+    exists = "✓" if os.path.exists(path) else "✗"
+    print(f"{exists} {name}: {path}")
 ```
 
 ### Visualize System
 
 ```python
 import mdtraj as md
-import nglview as nv
 
-# Load the solvated system
+# Load solvated system
 traj = md.load("output/GMX_PROLIG_MD/solv_ions.gro")
 
-# Quick statistics
+# System statistics
 print(f"Total atoms: {traj.n_atoms}")
-print(f"Box vectors: {traj.unitcell_vectors}")
-
-# Count water molecules
-water_atoms = traj.topology.select("water")
-print(f"Water molecules: {len(water_atoms) // 3}")
+print(f"Protein atoms: {traj.topology.select('protein').size}")
+print(f"Ligand atoms: {traj.topology.select('resname LIG').size}")
+print(f"Water molecules: {traj.topology.select('water').size // 3}")
+print(f"Box vectors: {traj.unitcell_vectors[0]}")
 
 # Count ions
 na_ions = traj.topology.select("resname NA")
 cl_ions = traj.topology.select("resname CL")
-print(f"Na+ ions: {len(na_ions)}, Cl- ions: {len(cl_ions)}")
-
-# Visualize
-view = nv.show_mdtraj(traj)
-view
+print(f"Na+ ions: {len(na_ions)}")
+print(f"Cl- ions: {len(cl_ions)}")
 ```
 
-### Validate Topology
+### Check Topology
 
 ```bash
-# Check topology file
 cd output/GMX_PROLIG_MD
-grep -c "^SOL" topol.top  # Count solvent molecules
-grep "qtot" topol.top | tail -1  # Check total charge
+
+# Check total charge (should be near 0)
+grep "qtot" topol.top | tail -1
+
+# Count molecules
+grep "^SOL" topol.top  # Water count
+grep "^NA\|^CL" topol.top  # Ion count
 ```
 
-## Common Building Scenarios
+---
 
-### High-Throughput Screening
+## Troubleshooting
 
-```python
-import prism
-from pathlib import Path
+### Build Failures
 
-# List of ligands to process
-ligands = Path("ligands").glob("*.mol2")
-
-for ligand_file in ligands:
-    ligand_name = ligand_file.stem
-    
-    system = prism.PRISMSystem(
-        "protein.pdb",
-        str(ligand_file),
-        f"output/{ligand_name}",
-        config="screening_config.yaml"
-    )
-    
-    try:
-        system.build()
-        print(f"✓ Built system for {ligand_name}")
-    except Exception as e:
-        print(f"✗ Failed for {ligand_name}: {e}")
-```
-
-### Mutation Studies
-
-```python
-# For each mutant
-mutants = ["WT", "A123V", "A123L", "A123F"]
-
-for mutant in mutants:
-    system = prism.PRISMSystem(
-        f"protein_{mutant}.pdb",
-        "ligand.mol2",
-        f"output/{mutant}",
-        config="mutation_study.yaml"
-    )
-    system.build()
-```
-
-### pH Studies
-
-```python
-# Build systems at different pH values
-for pH in [5.0, 6.0, 7.0, 8.0]:
-    # First prepare protein at specific pH
-    prepare_at_ph("protein.pdb", f"protein_pH{pH}.pdb", pH)
-    
-    # Then build system
-    system = prism.PRISMSystem(
-        f"protein_pH{pH}.pdb",
-        "ligand.mol2",
-        f"output/pH_{pH}"
-    )
-    system.build()
-```
-
-## Build Options
-
-### Command-Line Options
+#### "Force field not found"
 
 ```bash
-# Full command with all options
-prism protein.pdb ligand.mol2 \
-  --output my_system \
-  --ligand-forcefield gaff \
-  --forcefield amber14sb \
-  --water tip3p \
-  --box-shape dodecahedron \
-  --box-distance 1.5 \
-  --salt-concentration 0.15 \
-  --temperature 310 \
-  --pressure 1.0 \
-  --production-ns 500 \
-  --overwrite
-```
-
-### Python API Options
-
-```python
-system = prism.PRISMSystem(
-    "protein.pdb",
-    "ligand.mol2",
-    output_dir="my_system",
-    ligand_forcefield="gaff",
-    forcefield="amber14sb",
-    water_model="tip3p",
-    overwrite=True
-)
-
-# Additional configuration
-system.config['box']['distance'] = 2.0
-system.config['simulation']['production_time_ns'] = 1000
-
-# Build
-system.build()
-```
-
-## Troubleshooting Build Issues
-
-### Issue: "Force field not found"
-
-```bash
-# Check available force fields
+# List available force fields
 prism --list-forcefields
 
-# Use a known available force field
+# Use an available one
 prism protein.pdb ligand.mol2 -o output --forcefield amber99sb
 ```
 
-### Issue: "Cannot generate ligand parameters"
+#### "Cannot generate ligand parameters"
 
-```python
-# Check ligand structure
-from rdkit import Chem
+Try different force field:
+```bash
+# GAFF failed? Try OpenFF
+prism protein.pdb ligand.sdf -o output --ligand-forcefield openff
 
-mol = Chem.MolFromMol2File("ligand.mol2")
-if mol is None:
-    print("Invalid MOL2 file")
-else:
-    # Check for common issues
-    print(f"Atoms: {mol.GetNumAtoms()}")
-    print(f"Bonds: {mol.GetNumBonds()}")
-    
-    # Visualize to check structure
-    from rdkit.Chem import Draw
-    Draw.MolToFile(mol, "ligand.png")
+# Or OPLS-AA
+prism protein.pdb ligand.mol2 -o output --ligand-forcefield opls
 ```
 
-### Issue: "System has non-zero charge"
+#### "System has non-zero charge"
 
+Check ligand charge:
 ```bash
-# Check topology
-grep "qtot" output/GMX_PROLIG_MD/topol.top | tail -1
-
-# If non-zero, check ion addition
-# Increase salt concentration or check ligand charge
 prism protein.pdb ligand.mol2 -o output --ligand-charge -1
 ```
 
-### Issue: "Protein-ligand overlap"
+#### "Atom type not recognized"
 
-This usually means the ligand wasn't properly positioned:
-
-1. Check input files are in same coordinate frame
-2. Ensure ligand is positioned where it should bind
-3. Use docking to position ligand first if needed
-
-## Performance Tips
-
-### Speed Up Building
-
-1. **Reuse force field parameters**:
-```python
-# Build once
-system = prism.PRISMSystem("protein.pdb", "ligand.mol2", "output")
-system.build()
-
-# Reuse for similar systems
-# Copy output/LIG.amb2gmx for other proteins
-```
-
-2. **Parallel processing**:
-```python
-from multiprocessing import Pool
-
-def build_system(args):
-    protein, ligand, output = args
-    system = prism.PRISMSystem(protein, ligand, output)
-    return system.build()
-
-# Build multiple systems in parallel
-with Pool(4) as pool:
-    systems = [
-        ("protein.pdb", "lig1.mol2", "out1"),
-        ("protein.pdb", "lig2.mol2", "out2"),
-        # ...
-    ]
-    pool.map(build_system, systems)
-```
-
-3. **Skip unnecessary steps**:
+This usually means ligand has unusual chemistry:
 ```bash
-# If protein is already clean
-prism protein_clean.pdb ligand.mol2 -o output
+# Try OpenFF (better coverage)
+prism protein.pdb ligand.sdf -o output --ligand-forcefield openff
 
-# If force field files exist
-prism protein.pdb ligand.mol2 -o output  # Detects existing files
+# Or check ligand structure in visualization tool
 ```
 
-## Quality Assurance
-
-### Pre-Build Checklist
-
-- [ ] Protein structure is complete
-- [ ] Ligand has correct protonation
-- [ ] Ligand is positioned appropriately
-- [ ] Force field choice is appropriate
-- [ ] Box size is sufficient
-
-### Post-Build Verification
-
-- [ ] System has zero net charge
-- [ ] No atom overlaps
-- [ ] Correct number of waters/ions
-- [ ] Topology file is complete
-- [ ] MDP files are generated
-
-### Visual Inspection
-
-Always visualize the built system:
+### Performance Optimization
 
 ```bash
-# Using VMD
-vmd output/GMX_PROLIG_MD/solv_ions.gro
-
-# Using PyMOL
-pymol output/GMX_PROLIG_MD/solv_ions.gro
+# For high-throughput screening
+prism protein.pdb ligand.mol2 -o output \
+  --production-ns 100 \      # Shorter
+  --box-distance 1.0 \       # Smaller box
+  --box-shape dodecahedron   # Fewer waters
 ```
+
+---
 
 ## Next Steps
 
-- Choose appropriate [Force Fields](force-fields.md)
-- Learn to [Run Simulations](running-simulations.md)
-- Understand [Output Files](output-files.md)
+After building your system:
+
+1. **Run Simulations**: [Running Simulations](running-simulations.md)
+2. **Analyze Results**: [Analysis Tools](analysis-tools.md)
+3. **Advanced Calculations**: PMF, MM/PBSA
+4. **Understand Output**: [Output Files](output-files.md)

@@ -4,11 +4,17 @@ This guide provides detailed instructions for installing PRISM and its dependenc
 
 ## 📋 Prerequisites
 
-PRISM requires several components to be installed before you can use it. Please ensure you have the following prerequisites installed in order.
+PRISM requires several components to be installed. Install them in the following order:
 
 ### 1. GROMACS (Required)
 
-GROMACS is essential for PRISM's molecular dynamics simulations. Follow these steps to install GROMACS with GPU support:
+GROMACS is essential for PRISM to build and run molecular dynamics simulations. PRISM uses GROMACS for:
+- Processing protein structures (`pdb2gmx`)
+- Building simulation boxes and solvation (`editconf`, `solvate`)
+- Adding ions (`genion`)
+- Running MD simulations (`mdrun`)
+
+Follow these steps to install GROMACS with GPU support:
 
 #### Check CUDA Toolkit
 First, verify that you have CUDA installed:
@@ -125,82 +131,102 @@ pip install pyyaml
 
 ## 🧪 Force Field Specific Dependencies
 
-Depending on which force fields you plan to use, install the appropriate packages:
+PRISM supports **8+ ligand force fields**. Install dependencies based on your needs:
 
-### For GAFF Support
+### For GAFF / GAFF2 Support (Most Common)
 
-The General AMBER Force Field (GAFF) is commonly used for small molecules:
+The General AMBER Force Field is the default and most widely used:
 
 ```bash
-# AmberTools (required for GAFF)
+# AmberTools (provides antechamber, parmchk2)
 conda install -c conda-forge ambertools
 
-# ACPYPE for AMBER topology conversion (required)
+# ACPYPE for GROMACS conversion (required)
 pip install acpype
 
-# RDKit for molecular structure handling (optional but recommended)
+# RDKit for molecular structure handling (recommended)
 conda install -c conda-forge rdkit
 ```
 
 ### For OpenFF Support
 
-The Open Force Field Initiative provides modern, reproducible force fields:
+Modern, systematically improved force fields:
 
 ```bash
-# OpenFF toolkit and dependencies
+# OpenFF toolkit and interchange
 conda install -c conda-forge openff-toolkit openff-interchange
 
-# RDKit for SDF file handling (required)
+# RDKit for molecular reading
 conda install -c conda-forge rdkit
-
-# OpenBabel for file format conversion (optional but recommended)
-conda install -c conda-forge openbabel
 ```
 
-### For CHARMM Support
+### For CGenFF Support
+
+CHARMM General Force Field (requires web download):
+
+1. Upload your ligand to [ParamChem](https://cgenff.umaryland.edu/)
+2. Download the generated parameter files
+3. Provide the directory path to PRISM with `--forcefield-path`
 
 ```bash
-# CHARMM-GUI integration tools (optional)
-pip install charmm-gui-api
+# No additional software needed - uses downloaded files
+prism protein.pdb ligand.mol2 -o output --ligand-forcefield cgenff --forcefield-path /path/to/cgenff_files
+```
+
+### For OPLS-AA Support
+
+Uses LigParGen web server (requires internet):
+
+```bash
+# RDKit for structure handling
+conda install -c conda-forge rdkit
+
+# No additional software - uses LigParGen API
+```
+
+### For MMFF / MATCH / Hybrid Support
+
+Uses SwissParam web server (requires internet):
+
+```bash
+# RDKit for structure handling
+conda install -c conda-forge rdkit
+
+# No additional software - uses SwissParam API
 ```
 
 ## 📦 Installing PRISM
 
-Once all prerequisites are installed, you can install PRISM itself:
+Once all prerequisites are installed, you can install PRISM:
 
-### Method 1: Development Installation (Recommended)
+### Recommended: Development Installation
 
-This method allows you to modify PRISM and see changes immediately:
+This allows you to modify PRISM and immediately see changes:
 
 ```bash
 # Clone the PRISM repository
-git clone https://github.com/your-username/PRISM.git
+git clone https://github.com/AIB001/PRISM.git
 cd PRISM
 
 # Install in development mode
 pip install -e .
+
+# Verify installation
+prism --help
+python -c "import prism; print(prism.__version__)"
 ```
 
-### Method 2: Direct Usage
+### Alternative: Direct Usage (Without Installation)
 
-You can use PRISM directly without installation:
-
-```bash
-# Run PRISM directly
-python /path/to/PRISM/prism/builder.py
-```
-
-### Method 3: Standard Installation
-
-For a standard installation:
+You can also use PRISM directly:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/PRISM.git
+git clone https://github.com/AIB001/PRISM.git
 cd PRISM
 
-# Standard installation
-pip install .
+# Run PRISM module directly
+python -m prism.builder protein.pdb ligand.mol2 -o output_dir
 ```
 
 ## ✅ Verification
@@ -218,40 +244,57 @@ gmx --version
 
 ### Test Python Environment
 
-```python
+```bash
 # Activate PRISM environment
 conda activate prism
 
-# Test imports
+# Test core functionality
 python -c "import prism; print(f'PRISM version: {prism.__version__}')"
 python -c "import pdbfixer; print('PDBFixer: OK')"
 python -c "import yaml; print('YAML: OK')"
-python -c "import numpy; print(f'NumPy: {numpy.__version__}')"
+python -c "import numpy; print('NumPy: OK')"
 ```
 
-### Test Force Field Support
+### Check Available Dependencies
+
+Use PRISM's built-in dependency checker:
 
 ```python
-# Test GAFF support (if installed)
-python -c "import acpype; print('ACPYPE: OK')"
-python -c "import parmed; print('AmberTools: OK')"
+import prism
 
-# Test OpenFF support (if installed)
-python -c "import openff.toolkit; print('OpenFF: OK')"
-python -c "import openff.interchange; print('Interchange: OK')"
+# Check all dependencies
+deps = prism.check_dependencies()
+for name, available in deps.items():
+    status = "✓" if available else "✗"
+    print(f"{status} {name}")
 ```
 
-### Run PRISM Test Suite
+Expected output:
+```
+✓ gromacs
+✓ pdbfixer
+✓ antechamber     # For GAFF/GAFF2
+✗ openff          # Optional
+✓ mdtraj          # Optional for analysis
+✓ rdkit           # Optional for visualization
+```
+
+### List Available Force Fields
 
 ```bash
-# Navigate to PRISM directory
-cd PRISM
+# Check installed protein force fields
+prism --list-forcefields
+```
 
-# Run tests
-pytest tests/
+### Test System Building
 
-# Or run a quick test
-python -m prism.tests.quick_test
+```bash
+# Quick test with example files (if available)
+prism test_protein.pdb test_ligand.mol2 -o test_output
+
+# Check output structure
+ls -lh test_output/
+ls -lh test_output/GMX_PROLIG_MD/
 ```
 
 ## 🔧 Environment Variables

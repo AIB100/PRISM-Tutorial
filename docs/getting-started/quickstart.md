@@ -1,285 +1,417 @@
 # Quick Start Guide
 
-This guide will help you get started with PRISM in under 5 minutes. We'll walk through the basic workflow of preparing a protein-ligand system for molecular dynamics simulation.
+Get started with PRISM in 5 minutes! This guide demonstrates the complete workflow from preparing input files to running MD simulations.
 
 ## Prerequisites Check
 
 Before starting, ensure you have:
-- ✅ PRISM installed and configured
-- ✅ GROMACS properly set up
-- ✅ Required force field dependencies (GAFF or OpenFF)
-- ✅ Your protein structure file (PDB format)
-- ✅ Your ligand structure file (MOL2 or SDF format)
+- ✅ PRISM installed (`pip install -e .`)
+- ✅ GROMACS 2024.3+ installed and accessible
+- ✅ Force field dependencies installed (see [Installation](installation.md))
+- ✅ Your protein PDB file (with or without hydrogens)
+- ✅ Your ligand MOL2/SDF file (with correct protonation state)
 
-## Basic Usage
+## Method 1: Command-Line Interface (CLI)
 
-### 1. Prepare Your Input Files
+### Step 1: Build the System
 
-Ensure you have:
-- **Protein file**: `protein.pdb` - Your protein structure
-- **Ligand file**: `ligand.mol2` (for GAFF) or `ligand.sdf` (for OpenFF)
-
-!!! tip "File Format Tips"
-    - PDB files should have complete hydrogen atoms
-    - MOL2 files work best with GAFF force field
-    - SDF files are recommended for OpenFF force field
-    - Ensure ligand has proper 3D coordinates and hydrogens
-
-### 2. Run PRISM
-
-#### Option A: Using GAFF Force Field (Default)
-
-The simplest way to run PRISM with GAFF force field:
+The simplest way - build with one command:
 
 ```bash
+# Default: GAFF force field, amber99sb protein, tip3p water
 prism protein.pdb ligand.mol2 -o my_simulation
+
+# The system will be built in ./my_simulation directory
 ```
 
-This command will:
-- Process your protein with the AMBER force field
-- Parameterize your ligand with GAFF
-- Build a solvated system
-- Generate all necessary simulation files
+What PRISM does automatically:
+1. ✓ Cleans protein structure (removes HETATM, handles metals)
+2. ✓ Generates ligand force field parameters (GAFF by default)
+3. ✓ Builds GROMACS topology files
+4. ✓ Solvates system in water box
+5. ✓ Neutralizes and adds physiological salt (0.15 M)
+6. ✓ Generates MDP files for all simulation stages
+7. ✓ Creates ready-to-run simulation script
 
-#### Option B: Using OpenFF Force Field
+### Step 2: Run MD Simulation
 
-For more accurate ligand parameters using OpenFF:
-
-```bash
-prism protein.pdb ligand.sdf -o my_simulation --ligand-forcefield openff
-```
-
-#### Option C: Custom Configuration
-
-For advanced users with specific requirements:
-
-```bash
-prism protein.pdb ligand.mol2 -o my_simulation --config my_config.yaml
-```
-
-### 3. Understanding the Output
-
-After PRISM completes, you'll find the following structure in your output directory:
-
-```
-my_simulation/
-├── LIG.amb2gmx/           # Ligand force field files (if using GAFF)
-│   ├── LIG.gro           # Ligand coordinates
-│   ├── LIG.itp           # Ligand topology
-│   └── posre_LIG.itp     # Position restraints
-├── LIG.openff2gmx/        # Ligand force field files (if using OpenFF)
-├── GMX_PROLIG_MD/         # Main simulation directory
-│   ├── solv_ions.gro     # Solvated system with ions
-│   └── topol.top         # System topology
-└── mdps/                  # Simulation protocols
-    ├── em.mdp            # Energy minimization
-    ├── nvt.mdp           # NVT equilibration
-    ├── npt.mdp           # NPT equilibration
-    └── md.mdp            # Production MD
-```
-
-## Running MD Simulations
-
-### 1. Navigate to Simulation Directory
+After building, run the simulation:
 
 ```bash
 cd my_simulation/GMX_PROLIG_MD
+bash localrun.sh
 ```
 
-### 2. Create Run Script
+The script will automatically run:
+1. Energy Minimization (EM)
+2. NVT Equilibration (temperature)
+3. NPT Equilibration (pressure)
+4. Production MD (data collection)
 
-Create a file named `run_simulation.sh` with the following content:
-
-```bash
-#!/bin/bash
-
-# PRISM Molecular Dynamics Simulation Script
-# This script runs a complete MD simulation protocol
-
-echo "========================================="
-echo "Starting PRISM MD Simulation Protocol"
-echo "========================================="
-
-# Set simulation parameters
-NTMPI=1        # Number of thread-MPI ranks
-NTOMP=10       # Number of OpenMP threads per rank
-GPU_ID=0       # GPU device ID
-
-# Step 1: Energy Minimization
-echo -e "\n[1/4] Running Energy Minimization..."
-mkdir -p em
-if [ -f ./em/em.gro ]; then
-    echo "✓ EM already completed, skipping..."
-else
-    gmx grompp -f ../mdps/em.mdp -c solv_ions.gro -r solv_ions.gro \
-               -p topol.top -o ./em/em.tpr -maxwarn 999
-    gmx mdrun -s ./em/em.tpr -deffnm ./em/em \
-              -ntmpi $NTMPI -ntomp $NTOMP -gpu_id $GPU_ID -v
-    echo "✓ Energy minimization completed!"
-fi
-
-# Step 2: NVT Equilibration (Temperature)
-echo -e "\n[2/4] Running NVT Equilibration..."
-mkdir -p nvt
-if [ -f ./nvt/nvt.gro ]; then
-    echo "✓ NVT already completed, skipping..."
-else
-    gmx grompp -f ../mdps/nvt.mdp -c ./em/em.gro -r ./em/em.gro \
-               -p topol.top -o ./nvt/nvt.tpr -maxwarn 999
-    gmx mdrun -ntmpi $NTMPI -ntomp $NTOMP -nb gpu -bonded gpu \
-              -pme gpu -gpu_id $GPU_ID -s ./nvt/nvt.tpr \
-              -deffnm ./nvt/nvt -v
-    echo "✓ NVT equilibration completed!"
-fi
-
-# Step 3: NPT Equilibration (Pressure)
-echo -e "\n[3/4] Running NPT Equilibration..."
-mkdir -p npt
-if [ -f ./npt/npt.gro ]; then
-    echo "✓ NPT already completed, skipping..."
-else
-    gmx grompp -f ../mdps/npt.mdp -c ./nvt/nvt.gro -r ./nvt/nvt.gro \
-               -t ./nvt/nvt.cpt -p topol.top -o ./npt/npt.tpr -maxwarn 999
-    gmx mdrun -ntmpi $NTMPI -ntomp $NTOMP -nb gpu -bonded gpu \
-              -pme gpu -gpu_id $GPU_ID -s ./npt/npt.tpr \
-              -deffnm ./npt/npt -v
-    echo "✓ NPT equilibration completed!"
-fi
-
-# Step 4: Production MD
-echo -e "\n[4/4] Running Production MD..."
-mkdir -p prod
-if [ -f ./prod/md.gro ]; then
-    echo "✓ Production MD already completed!"
-else
-    gmx grompp -f ../mdps/md.mdp -c ./npt/npt.gro -r ./npt/npt.gro \
-               -p topol.top -o ./prod/md.tpr -maxwarn 999
-    gmx mdrun -ntmpi $NTMPI -ntomp $NTOMP -nb gpu -bonded gpu \
-              -pme gpu -gpu_id $GPU_ID -s ./prod/md.tpr \
-              -deffnm ./prod/md -v
-    echo "✓ Production MD completed!"
-fi
-
-echo -e "\n========================================="
-echo "Simulation Protocol Completed Successfully!"
-echo "========================================="
-echo "Results are in the 'prod' directory"
-```
-
-### 3. Run the Simulation
-
-Make the script executable and run:
-
-```bash
-chmod +x run_simulation.sh
-bash ./run_simulation.sh
-```
-
-!!! info "GPU Acceleration"
-    The script is configured for GPU acceleration. If you don't have a GPU, remove the GPU-related flags:
-    - Remove: `-nb gpu -bonded gpu -pme gpu -gpu_id 0`
-    - The simulation will run on CPU only (slower but still functional)
-
-### 4. Monitor Progress
-
-The simulation will run through four stages:
-1. **Energy Minimization** (~5 minutes)
-2. **NVT Equilibration** (~10 minutes)
-3. **NPT Equilibration** (~10 minutes)
-4. **Production MD** (varies based on settings)
-
-## Quick Examples
-
-### Example 1: Basic Protein-Ligand System
-
-```bash
-# Prepare system with default settings
-prism 1ABC.pdb drug.mol2 -o drug_simulation
-
-# Run simulations
-cd drug_simulation/GMX_PROLIG_MD
-bash ../run_simulation.sh
-```
-
-### Example 2: Using Custom Water Model
-
-```bash
-# Create custom config file
-cat > custom.yaml << EOF
-water_model: tip4p
-box_size: 1.0
-EOF
-
-# Run with custom config
-prism protein.pdb ligand.mol2 -o output --config custom.yaml
-```
-
-### Example 3: High-Precision OpenFF Setup
-
-```bash
-# Use OpenFF for better ligand parameters
-prism receptor.pdb compound.sdf -o precise_sim --ligand-forcefield openff
-
-# Run with extended equilibration
-cd precise_sim/GMX_PROLIG_MD
-# Edit mdps/nvt.mdp and mdps/npt.mdp to increase nsteps if needed
-bash ../run_simulation.sh
-```
-
-## Analyzing Results
-
-After the simulation completes, you can analyze the trajectory:
-
-```bash
-# Check system stability (RMSD)
-gmx rms -s ./em/em.tpr -f ./prod/md.xtc -o rmsd.xvg
-
-# Analyze protein-ligand interactions
-gmx distance -s ./prod/md.tpr -f ./prod/md.xtc -select 'com of group "Protein" plus com of group "LIG"' -o distance.xvg
-
-# Extract snapshots
-gmx trjconv -s ./prod/md.tpr -f ./prod/md.xtc -o trajectory.pdb -dt 100
-```
-
-## Common Options
-
-| Option | Description | Example |
-|--------|-------------|---------|
-| `-o` | Output directory | `-o my_project` |
-| `--ligand-forcefield` | Force field for ligand | `--ligand-forcefield openff` |
-| `--config` | Custom configuration file | `--config custom.yaml` |
-| `--water` | Water model | `--water tip4p` |
-| `--box-size` | Box padding (nm) | `--box-size 1.2` |
-| `--ions` | Ion concentration (M) | `--ions 0.15` |
-
-## Troubleshooting Quick Tips
-
-!!! warning "Common Issues"
-
-    **Issue**: "Atom type not found" error
-    - **Solution**: Ensure force field files are properly generated. Check the `LIG.amb2gmx/` or `LIG.openff2gmx/` directory.
-
-    **Issue**: Simulation crashes during minimization
-    - **Solution**: Check for clashes in input structures. Consider using a larger box size.
-
-    **Issue**: "GPU not detected" message
-    - **Solution**: Verify CUDA installation and GROMACS GPU support with `gmx mdrun -version`
-
-    **Issue**: Simulation is very slow
-    - **Solution**: Use GPU acceleration or increase the number of CPU cores with `-ntomp`
-
-## Next Steps
-
-Now that you've completed your first simulation:
-
-1. **Explore Advanced Features**: Check the [User Guide](../user-guide/index.md) for detailed configuration options
-2. **Optimize Performance**: Learn about [performance tuning](../user-guide/performance.md)
-3. **Analyze Results**: See our [analysis tutorials](../tutorials/analysis.md)
-4. **Customize Protocols**: Modify MDP files for your specific research needs
+!!! success "That's it!"
+    Your system is now running molecular dynamics. Results will be in `prod/` directory.
 
 ---
 
-!!! success "Congratulations!"
-    You've successfully set up and run your first protein-ligand MD simulation with PRISM! 🎉
-    
-    For more complex scenarios and advanced features, explore the rest of our documentation.
+## Method 2: Python API
+
+For more control, use the Python interface:
+
+```python
+import prism
+
+# Create system
+system = prism.system("protein.pdb", "ligand.mol2", output_dir="my_sim")
+
+# Build the system
+system.build()
+
+# Check what was generated
+system.info()
+
+# Get file paths
+files = system.get_output_files()
+print(files['system_gro'])  # Path to solvated system
+print(files['system_top'])  # Path to topology
+```
+
+---
+
+## Choosing Force Fields
+
+### Using Different Ligand Force Fields
+
+PRISM supports 8+ ligand force fields:
+
+```bash
+# GAFF (default, most common)
+prism protein.pdb ligand.mol2 -o output
+
+# GAFF2 (improved version)
+prism protein.pdb ligand.mol2 -o output --ligand-forcefield gaff2
+
+# OpenFF (modern, data-driven)
+prism protein.pdb ligand.sdf -o output --ligand-forcefield openff
+
+# OPLS-AA (via LigParGen server)
+prism protein.pdb ligand.mol2 -o output --ligand-forcefield opls
+
+# CGenFF (CHARMM, requires web download)
+prism protein.pdb ligand.mol2 -o output --ligand-forcefield cgenff \
+  --forcefield-path /path/to/downloaded_cgenff
+
+# MMFF/MATCH/Hybrid (via SwissParam)
+prism protein.pdb ligand.mol2 -o output --ligand-forcefield mmff
+```
+
+### Using Different Protein Force Fields
+
+```bash
+# AMBER14SB (recommended for proteins)
+prism protein.pdb ligand.mol2 -o output --forcefield amber14sb
+
+# AMBER99SB-ILDN (improved side chains)
+prism protein.pdb ligand.mol2 -o output --forcefield amber99sb-ildn
+
+# CHARMM36 (good for membranes)
+prism protein.pdb ligand.mol2 -o output --forcefield charmm36 --water tips3p
+```
+
+---
+
+## Understanding the Output
+
+After PRISM completes, you'll find this directory structure:
+
+```
+my_simulation/
+├── LIG.amb2gmx/              # Ligand force field files (GAFF/GAFF2)
+│   ├── LIG.gro              # Ligand coordinates
+│   ├── LIG.itp              # Ligand topology
+│   ├── atomtypes_LIG.itp    # Atom type definitions
+│   └── posre_LIG.itp        # Position restraints
+│
+├── LIG.openff2gmx/           # Ligand files (if using OpenFF)
+│   └── (same structure)
+│
+├── GMX_PROLIG_MD/            # **Main simulation directory**
+│   ├── solv_ions.gro        # Complete solvated system
+│   ├── topol.top            # System topology
+│   ├── localrun.sh          # Ready-to-run simulation script
+│   └── (em/, nvt/, npt/, prod/ created during simulation)
+│
+├── mdps/                     # MD parameter files
+│   ├── em.mdp               # Energy minimization
+│   ├── nvt.mdp              # NVT equilibration (500 ps)
+│   ├── npt.mdp              # NPT equilibration (500 ps)
+│   └── md.mdp               # Production MD (500 ns default)
+│
+├── prism_config.yaml         # Configuration used
+└── protein_clean.pdb         # Cleaned protein structure
+```
+
+### Key Files Explained
+
+| File | Purpose |
+|------|---------|
+| `solv_ions.gro` | Starting structure for MD (protein + ligand + water + ions) |
+| `topol.top` | Complete system topology (defines all interactions) |
+| `localrun.sh` | Automated script to run complete MD workflow |
+| `*.mdp` files | Parameters for each simulation stage |
+| `LIG.itp` | Ligand-specific parameters (charges, bonds, angles, dihedrals) |
+
+---
+
+## Advanced Options
+
+### Customizing Simulation Parameters
+
+```bash
+# Longer production run (1 microsecond)
+prism protein.pdb ligand.mol2 -o output --production-ns 1000
+
+# Different temperature (300 K instead of 310 K)
+prism protein.pdb ligand.mol2 -o output --temperature 300
+
+# Larger water box (2.0 nm instead of 1.5 nm)
+prism protein.pdb ligand.mol2 -o output --box-distance 2.0
+
+# Higher salt concentration (physiological is 0.15 M)
+prism protein.pdb ligand.mol2 -o output --salt-concentration 0.15
+
+# Charged ligand
+prism protein.pdb ligand.mol2 -o output --ligand-charge -1
+```
+
+### Using Configuration Files
+
+For complex setups, use a YAML configuration file:
+
+```bash
+# Export default configuration template
+prism --export-config my_config.yaml
+
+# Edit my_config.yaml with your preferred settings
+
+# Build with custom config
+prism protein.pdb ligand.mol2 -o output --config my_config.yaml
+```
+
+Example `my_config.yaml`:
+```yaml
+simulation:
+  temperature: 300
+  pressure: 1.0
+  pH: 7.4
+  production_time_ns: 1000
+
+box:
+  distance: 2.0
+  shape: dodecahedron  # More efficient than cubic
+
+ions:
+  concentration: 0.15  # Physiological salt
+```
+
+---
+
+## Common Workflows
+
+### Workflow 1: Drug-Protein Complex
+
+```bash
+# Download PDB from RCSB
+# Prepare ligand with correct protonation (use ChemDraw, Avogadro, etc.)
+
+# Build system with default GAFF
+prism 1ABC_protein.pdb drug.mol2 -o drug_complex
+
+# Run MD
+cd drug_complex/GMX_PROLIG_MD
+bash localrun.sh
+```
+
+### Workflow 2: High-Accuracy Binding Study
+
+```bash
+# Use OpenFF for better ligand parameters
+# Use AMBER14SB for better protein backbone
+prism receptor.pdb compound.sdf -o high_accuracy \
+  --ligand-forcefield openff \
+  --forcefield amber14sb \
+  --production-ns 1000 \
+  --box-distance 2.0
+```
+
+### Workflow 3: Screening Multiple Ligands
+
+```python
+import prism
+from pathlib import Path
+
+# List of ligand files
+ligands = list(Path("ligands/").glob("*.mol2"))
+
+for lig in ligands:
+    name = lig.stem
+    system = prism.system("protein.pdb", str(lig), output_dir=f"screen/{name}")
+    try:
+        system.build()
+        print(f"✓ Built system for {name}")
+    except Exception as e:
+        print(f"✗ Failed for {name}: {e}")
+```
+
+---
+
+## Analysis with PRISM
+
+PRISM includes comprehensive analysis tools:
+
+### Quick Analysis
+
+```python
+import prism
+
+# Analyze trajectory and generate interactive visualization
+analyzer = prism.analyze_trajectory(
+    topology="system.gro",
+    trajectory="md.xtc",
+    ligand_resname="LIG"
+)
+
+# Results saved to analysis_results/ directory
+# Includes:
+# - RMSD/RMSF plots
+# - Contact frequency maps
+# - Hydrogen bond analysis
+# - Interactive HTML visualization
+```
+
+### Interactive Contact Visualization
+
+```python
+import prism
+
+# Generate interactive HTML contact map
+prism.visualize_trajectory(
+    trajectory="prod/md.xtc",
+    topology="prod/md.tpr",
+    ligand="ligand.sdf",
+    output="contacts.html"
+)
+
+# Open contacts.html in web browser for interactive viewing
+```
+
+### Basic GROMACS Analysis
+
+```bash
+cd my_simulation/GMX_PROLIG_MD/prod
+
+# RMSD (backbone stability)
+echo "Backbone Backbone" | gmx rms -s md.tpr -f md.xtc -o rmsd.xvg
+
+# RMSF (per-residue fluctuations)
+echo "C-alpha" | gmx rmsf -s md.tpr -f md.xtc -o rmsf.xvg
+
+# Protein-ligand distance
+echo "Protein LIG" | gmx distance -s md.tpr -f md.xtc -oall distances.xvg
+
+# Hydrogen bonds
+echo "Protein LIG" | gmx hbond -s md.tpr -f md.xtc -num hbonds.xvg
+```
+
+---
+
+## Command-Line Options Reference
+
+| Option | Description | Default | Example |
+|--------|-------------|---------|---------|
+| `-o, --output` | Output directory | `prism_output` | `-o my_system` |
+| `--ligand-forcefield` | Ligand force field | `gaff` | `--ligand-forcefield openff` |
+| `--forcefield` | Protein force field | `amber99sb` | `--forcefield amber14sb` |
+| `--water` | Water model | `tip3p` | `--water tip4p` |
+| `--box-distance` | Box padding (nm) | `1.5` | `--box-distance 2.0` |
+| `--temperature` | Temperature (K) | `310` | `--temperature 300` |
+| `--production-ns` | Production time (ns) | `500` | `--production-ns 1000` |
+| `--salt-concentration` | Salt conc. (M) | `0.15` | `--salt-concentration 0.10` |
+| `--ligand-charge` | Ligand net charge | `0` | `--ligand-charge -1` |
+| `--config` | Config YAML file | None | `--config custom.yaml` |
+| `--overwrite` | Overwrite existing | `False` | `--overwrite` |
+
+---
+
+## Troubleshooting
+
+### Common Build Issues
+
+!!! failure "GROMACS not found"
+    ```
+    Error: GROMACS command not found
+    ```
+    **Solution**: Ensure GROMACS is installed and sourced:
+    ```bash
+    source /path/to/gromacs/bin/GMXRC
+    gmx --version
+    ```
+
+!!! failure "Force field not available"
+    ```
+    Error: Cannot generate GAFF parameters
+    ```
+    **Solution**: Install AmberTools and ACPYPE:
+    ```bash
+    conda install -c conda-forge ambertools
+    pip install acpype
+    ```
+
+!!! failure "Ligand parameterization failed"
+    ```
+    Error: Cannot assign atom types
+    ```
+    **Solutions**:
+    - Check ligand file format (MOL2 should have correct atom types)
+    - Try a different force field: `--ligand-forcefield openff`
+    - Verify ligand has proper 3D coordinates and hydrogens
+
+### Common Simulation Issues
+
+!!! failure "System has non-zero charge"
+    **Solution**: Check ligand charge and specify if needed:
+    ```bash
+    prism protein.pdb ligand.mol2 -o output --ligand-charge -1
+    ```
+
+!!! failure "Energy minimization fails"
+    **Solution**: Increase box size to reduce clashes:
+    ```bash
+    prism protein.pdb ligand.mol2 -o output --box-distance 2.0
+    ```
+
+!!! failure "GPU not detected"
+    **Solution**:
+    - Check: `nvidia-smi` and `gmx mdrun -version`
+    - Edit `localrun.sh` to remove `-gpu_id 0` flags for CPU-only
+
+---
+
+## Next Steps
+
+!!! success "Ready for More?"
+
+    **Learn More:**
+    - [User Guide](../user-guide/index.md) - Detailed documentation
+    - [Force Fields Guide](../user-guide/force-fields.md) - Choosing the right force field
+    - [Analysis Tools](../user-guide/analysis-tools.md) - Advanced analysis
+
+    **Advanced Topics:**
+    - PMF calculations (binding free energy)
+    - MM/PBSA calculations
+    - High-throughput screening workflows
+
+---
+
+<p align="center">
+  <strong>🎉 You've successfully built your first PRISM system!</strong>
+</p>
