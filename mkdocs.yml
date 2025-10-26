@@ -141,45 +141,39 @@ extra:
 nav:
   - Home: index.md
   - Getting Started:
-    - getting-started/index.md
+    - Overview: getting-started/index.md
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
-    # - Basic Concepts: getting-started/concepts.md
   - User Guide:
     - Overview: user-guide/index.md
-    - Configuration: user-guide/configuration.md
-    - Input Files: user-guide/input-files.md
     - Building Systems: user-guide/building-systems.md
     - Force Fields: user-guide/force-fields.md
     - Running Simulations: user-guide/running-simulations.md
     - Analysis Tools: user-guide/analysis-tools.md
+    - PMF Calculations: user-guide/pmf-calculations.md
+    - Configuration: user-guide/configuration.md
     - Output Files: user-guide/output-files.md
-    - Advanced Usage: user-guide/advanced-usage.md
     - Troubleshooting: user-guide/troubleshooting.md
   - Tutorials:
-    - tutorials/index.md
+    - Overview: tutorials/index.md
     - Basic Tutorial: tutorials/basic-tutorial.md
-    - Advanced Analysis: tutorials/advanced-analysis.md
-    - Case Studies: tutorials/case-studies.md
+    - Force Field Selection: tutorials/force-field-tutorial.md
+    - PMF Workflow: tutorials/pmf-tutorial.md
+    - Batch Processing: tutorials/batch-tutorial.md
   - Examples:
-    - examples/index.md
-    - Simple Examples: examples/simple.md
-    - Complex Workflows: examples/complex.md
-    - Best Practices: examples/best-practices.md
+    - Overview: examples/index.md
+    - Simple Protein-Ligand: examples/simple.md
+    - Multiple Force Fields: examples/multi-forcefield.md
+    - Custom Configurations: examples/custom-config.md
   - API Reference:
-    - api/index.md
-    - Core Modules: api/core.md
-    - Analysis Functions: api/analysis.md
+    - Overview: api/index.md
+    - Builder API: api/builder.md
+    - Analysis API: api/analysis.md
+    - PMF API: api/pmf.md
     - Utilities: api/utilities.md
-  - Development:
-    - development/index.md
-    - Contributing: development/contributing.md
-    - Code Style: development/code-style.md
-    - Testing: development/testing.md
-    - Release Notes: development/changelog.md
   - About:
-    - about/index.md
-    - Project History: about/history.md
-    - Team: about/team.md
+    - About PRISM: about/index.md
+    - Team & Contact: about/team.md
     - Publications: about/publications.md
     - License: about/license.md
+    - Changelog: about/changelog.md
