@@ -602,6 +602,6 @@ archive_project("output")
 
 ## Next Steps
 
-- Learn [Advanced Usage](advanced-usage.md) techniques
 - Troubleshoot issues with [Troubleshooting Guide](troubleshooting.md)
+- Explore [Analysis Tools](analysis-tools.md) for trajectory analysis
 - Return to [User Guide Overview](index.md)

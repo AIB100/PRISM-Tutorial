@@ -177,12 +177,10 @@ Molecular mechanics Poisson-Boltzmann surface area:
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](development/contributing.md) for details on how to get started.
-
-### Development
+We welcome contributions! To get started:
 
 ```bash
-# Clone repository
+# Fork and clone repository
 git clone https://github.com/your-username/PRISM.git
 cd PRISM
 
@@ -191,7 +189,11 @@ pip install -e .[dev]
 
 # Run tests
 pytest tests/
+
+# Submit pull request via GitHub
 ```
+
+For questions or suggestions, please open an issue on [GitHub](https://github.com/AIB001/PRISM/issues).
 
 ## Citation
 

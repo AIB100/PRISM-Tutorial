@@ -185,7 +185,7 @@ Have a useful example to share? We welcome contributions!
 3. Follow the standard structure
 4. Submit a pull request
 
-See [Contributing Guide](../development/contributing.md) for details.
+For contributions, please open an issue or pull request on [GitHub](https://github.com/AIB001/PRISM).
 
 ---
 

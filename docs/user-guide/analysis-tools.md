@@ -651,5 +651,5 @@ with pd.ExcelWriter("analysis_results.xlsx") as writer:
 ## Next Steps
 
 - Review [Output Files](output-files.md) structure
-- Learn [Advanced Usage](advanced-usage.md) techniques
 - Troubleshoot issues with [Troubleshooting Guide](troubleshooting.md)
+- Explore [PMF Calculations](pmf-calculations.md) for advanced analysis

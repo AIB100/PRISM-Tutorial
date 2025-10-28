@@ -20,11 +20,11 @@ This section covers everything you need to know to start using PRISM:
 
     Your first PRISM analysis in under 5 minutes
 
--   :material-book-education:{ .lg .middle } **[Basic Concepts](concepts.md)**
+-   :material-book-education:{ .lg .middle } **Basic Concepts**
 
     ---
 
-    Understanding PRISM's core concepts and architecture
+    Core concepts covered in the Quick Start guide
 
 </div>
 
@@ -69,20 +69,20 @@ If you're eager to get started, follow this quick path:
 ### For Beginners
 
 !!! tip "New to Molecular Dynamics?"
-    If you're new to molecular dynamics analysis, we recommend:
-    
-    1. Start with the [Basic Concepts](concepts.md) guide
+    If you're new to molecular dynamics simulations, we recommend:
+
+    1. Read the [Quick Start](quickstart.md) guide
     2. Follow the [Basic Tutorial](../tutorials/basic-tutorial.md)
     3. Explore [Simple Examples](../examples/simple.md)
 
 ### For Experienced Users
 
 !!! info "Coming from other MD tools?"
-    If you're experienced with tools like MDAnalysis or MDTraj:
-    
-    - Check our [Migration Guide](migration-guide.md)
-    - Jump to [Advanced Analysis](../tutorials/advanced-analysis.md)
-    - Explore the [API Reference](../api/index.md)
+    If you're experienced with GROMACS or other MD tools:
+
+    - Review the [Force Fields Guide](../user-guide/force-fields.md)
+    - Explore advanced [PMF Calculations](../user-guide/pmf-calculations.md)
+    - Check the [API Reference](../api/index.md)
 
 ## 🎓 Tutorial Pathway
 
@@ -110,8 +110,8 @@ graph LR
 Having issues? Check these resources:
 
 - [Common Installation Issues](installation.md#troubleshooting)
-- [FAQ](../about/faq.md)
-- [GitHub Issues](https://github.com/username/PRISM/issues)
+- [User Guide Troubleshooting](../user-guide/troubleshooting.md)
+- [GitHub Issues](https://github.com/AIB001/PRISM/issues)
 
 ## 📊 Sample Datasets
 

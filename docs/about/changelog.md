@@ -224,7 +224,7 @@ Found a bug or regression?
 
 ## Contributing
 
-See [Contributing Guide](../development/contributing.md) for how to contribute to PRISM development.
+For contributions, please open an issue or pull request on [GitHub](https://github.com/AIB001/PRISM).
 
 ---
 

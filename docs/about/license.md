@@ -137,7 +137,7 @@ See [Publications](publications.md) for details on citing PRISM.
 
 By contributing to PRISM, you agree that your contributions will be licensed under the same MIT License.
 
-See [Contributing Guide](../development/contributing.md) for details.
+For contributions, please open an issue or pull request on [GitHub](https://github.com/AIB001/PRISM).
 
 ---
 

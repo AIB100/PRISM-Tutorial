@@ -400,7 +400,7 @@ cmake .. -DGMX_MPI=ON \
 
 If you encounter issues during installation:
 
-1. Check the [FAQ](../about/faq.md)
+1. Check the [Troubleshooting Guide](../user-guide/troubleshooting.md)
 2. Search [GitHub Issues](https://github.com/AIB001/PRISM/issues)
 3. Post on [GitHub Discussions](https://github.com/AIB001/PRISM/discussions)
 4. Contact: [author email](mailto:zshi268@wisc.edu)

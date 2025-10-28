@@ -70,7 +70,7 @@ Found a bug or have a feature request?
 4. Add tests if applicable
 5. Submit a pull request
 
-See [Contributing Guide](../development/contributing.md) for detailed instructions.
+For detailed instructions, please open an issue or pull request on [GitHub](https://github.com/AIB001/PRISM).
 
 ### Contributing Documentation
 
