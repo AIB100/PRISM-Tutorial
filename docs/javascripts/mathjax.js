@@ -3,27 +3,17 @@ window.MathJax = {
     inlineMath: [["\\(", "\\)"]],
     displayMath: [["\\[", "\\]"]],
     processEscapes: true,
-    processEnvironments: true,
-    tags: 'ams',
-    packages: {
-      '[+]': ['mathtools', 'cases', 'braket', 'mhchem']
-    }
+    processEnvironments: true
   },
   options: {
     ignoreHtmlClass: ".*|",
     processHtmlClass: "arithmatex"
-  },
-  loader: {
-    load: ['[tex]/mathtools', '[tex]/cases', '[tex]/braket', '[tex]/mhchem']
-  },
-  chtml: {
-    scale: 1.0,
-    displayAlign: 'left',
-    displayIndent: '2em'
-  },
-  svg: {
-    scale: 1.0,
-    displayAlign: 'left',
-    displayIndent: '2em'
   }
 };
+
+document$.subscribe(() => {
+  MathJax.startup.output.clearCache()
+  MathJax.typesetClear()
+  MathJax.texReset()
+  MathJax.typesetPromise()
+})
