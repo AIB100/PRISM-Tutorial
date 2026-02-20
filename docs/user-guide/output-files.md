@@ -2,6 +2,14 @@
 
 Understanding PRISM's output structure is essential for analysis and troubleshooting. This guide details all files generated during system building and simulation.
 
+!!! example "Quick Start"
+    ```bash
+    # After building, find your files here:
+    ls my_system/GMX_PROLIG_MD/     # Main simulation directory
+    ls my_system/LIG.amb2gmx/       # Ligand force field files
+    ls my_system/mdps/              # MDP parameter files
+    ```
+
 ## Output Directory Structure
 
 ```
@@ -600,8 +608,12 @@ archive_project("output")
 5. **Data Management**: Remove unnecessary temporary files
 6. **Metadata**: Document file contents and parameters
 
-## Next Steps
+<div class="whats-next" markdown>
 
-- Troubleshoot issues with [Troubleshooting Guide](troubleshooting.md)
-- Explore [Analysis Tools](analysis-tools.md) for trajectory analysis
-- Return to [User Guide Overview](index.md)
+## What's Next
+
+- [Troubleshoot common issues](troubleshooting.md)
+- [Analyze trajectories with the Analysis Tools](analysis-tools.md)
+- [Return to the User Guide overview](index.md)
+
+</div>

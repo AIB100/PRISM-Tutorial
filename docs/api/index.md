@@ -13,8 +13,8 @@ Comprehensive API documentation for all PRISM modules.
 - [Visualization](analysis.md#visualization) - Interactive visualizations
 
 ### Advanced Calculations
-- [PMF Module](pmf.md) - Free energy calculations
-- [Utilities](utilities.md) - Helper functions
+- [PMF Module](pmf.md) - PMF alignment and pulling direction optimization
+- [Utilities](utilities.md) - Helper functions and environment detection
 
 ---
 
@@ -32,8 +32,8 @@ system.build()
 # Analyze trajectory
 analysis = prism.analyze_trajectory("system.gro", "traj.xtc")
 
-# PMF calculation
-results = prism.run_pmf_workflow("md_dir", "pmf_output")
+# Visualize contacts
+prism.visualize_trajectory("md.xtc", "system.gro", "ligand.sdf", output="contacts.html")
 ```
 
 ### Class-Based API
@@ -58,13 +58,13 @@ analyzer.analyze_all()
 |--------|---------|-------------|
 | [builder](builder.md) | System construction | PRISMBuilder, PRISMSystem |
 | [analysis](analysis.md) | Trajectory analysis | TrajAnalysis, HTMLGenerator |
-| [pmf](pmf.md) | Free energy | PMFBuilder, PMFRunner |
-| [utilities](utilities.md) | Helper functions | Various utility functions |
+| [pmf](pmf.md) | PMF alignment | PMFAligner |
+| [utilities](utilities.md) | Helper functions | ConfigurationManager, GromacsEnvironment |
 
 ---
 
 ## API Stability
 
-- **Stable**: High-level functions (prism.system, prism.analyze_trajectory)
+- **Stable**: High-level functions (`prism.system`, `prism.analyze_trajectory`, `prism.visualize_trajectory`)
 - **Evolving**: Internal classes (subject to change)
 - **Experimental**: PMF module (API may change in minor versions)

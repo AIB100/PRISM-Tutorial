@@ -2,6 +2,11 @@
 
 PRISM automates the complex workflow of preparing protein-ligand systems for molecular dynamics simulations. This guide covers all aspects of system building.
 
+!!! example "Quick Start"
+    ```bash
+    prism protein.pdb ligand.mol2 -o my_system
+    ```
+
 ## Overview
 
 PRISM's automated building process includes:
@@ -472,17 +477,24 @@ prism protein.pdb ligand.mol2 -o output --no-neutralize
 
 ### Multiple Ligands
 
-PRISM currently supports single ligand. For multiple:
+PRISM supports building systems with multiple ligands in a single command:
 
-```python
-# Build each ligand separately
-system1 = prism.system("protein.pdb", "lig1.mol2", output_dir="lig1")
-system1.build()
+```bash
+# Multiple ligands (use -pf and -lf flags)
+prism -pf protein.pdb -lf lig1.mol2 -lf lig2.mol2 -o output
 
-system2 = prism.system("protein.pdb", "lig2.mol2", output_dir="lig2")
-system2.build()
+# CGenFF with multiple ligands (one --forcefield-path per ligand)
+prism -pf protein.pdb -lf lig1.mol2 -lf lig2.mol2 -o output \
+  --ligand-forcefield cgenff -ffp /path/to/cgenff1 -ffp /path/to/cgenff2
+```
 
-# Then manually combine topologies (advanced)
+Output structure for multi-ligand builds:
+```
+output/
+├── Ligand_gaff/
+│   ├── LIG.amb2gmx_1/
+│   └── LIG.amb2gmx_2/
+└── GMX_PROLIG_MD/
 ```
 
 ### Metal-Binding Proteins
@@ -625,11 +637,33 @@ prism protein.pdb ligand.mol2 -o output \
 
 ---
 
-## Next Steps
+## Special Modes
 
-After building your system:
+PRISM also supports advanced calculation modes that extend the basic build workflow:
 
-1. **Run Simulations**: [Running Simulations](running-simulations.md)
-2. **Analyze Results**: [Analysis Tools](analysis-tools.md)
-3. **Advanced Calculations**: PMF, MM/PBSA
-4. **Understand Output**: [Output Files](output-files.md)
+```bash
+# PMF calculation (steered MD + umbrella sampling)
+prism protein.pdb ligand.mol2 -o output --pmf
+
+# MM/PBSA binding energy
+prism protein.pdb ligand.mol2 -o output --mmpbsa
+
+# REST2 replica exchange
+prism protein.pdb ligand.mol2 -o output --rest2
+
+# Gaussian RESP charges
+prism protein.pdb ligand.mol2 -o output --gaussian hf
+```
+
+See [PMF Calculations](pmf-calculations.md), [Running Simulations](running-simulations.md), and [Force Fields](force-fields.md) for details.
+
+<div class="whats-next" markdown>
+
+## What's Next
+
+- [Run your built system with the Simulation Guide](running-simulations.md)
+- [Analyze trajectories with the Analysis Tools](analysis-tools.md)
+- [Understand what PRISM generates in the Output Files guide](output-files.md)
+- [Set up PMF calculations for binding free energy](pmf-calculations.md)
+
+</div>

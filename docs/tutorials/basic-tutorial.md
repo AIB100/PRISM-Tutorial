@@ -1,5 +1,11 @@
 # Basic PRISM Tutorial
 
+!!! example "Quick Start"
+    ```bash
+    prism protein.pdb ligand.mol2 -o t4_lysozyme_benzene
+    cd t4_lysozyme_benzene/GMX_PROLIG_MD && bash localrun.sh
+    ```
+
 ## Overview
 
 This tutorial will guide you through the complete workflow of building a protein-ligand MD system using PRISM, from input preparation to analyzing simulation results.
@@ -439,7 +445,7 @@ echo "Total-Energy" | gmx energy -f prod/md.edr -o total_energy.xvg
 Congratulations! You've completed the basic PRISM tutorial. Here's where to go next:
 
 1. **Try Different Force Fields**
-   - Rebuild with OpenFF: `prism protein.pdb ligand.mol2 -o openff_system --ligand-ff openff`
+   - Rebuild with OpenFF: `prism protein.pdb ligand.mol2 -o openff_system --ligand-forcefield openff`
    - Compare results with GAFF version
    - See [Force Field Tutorial](force-field-tutorial.md)
 
@@ -474,9 +480,13 @@ In this tutorial, you learned:
 - [Running Simulations](../user-guide/running-simulations.md)
 - [Analysis Tools](../user-guide/analysis-tools.md)
 
-## Questions?
+<div class="whats-next" markdown>
 
-If you encounter issues:
-- Check [Troubleshooting Guide](../user-guide/troubleshooting.md)
-- Open an issue: [GitHub Issues](https://github.com/AIB001/PRISM/issues)
-- Email: zhaoqi.shi@wisc.edu
+## What's Next
+
+- [Compare force fields in the Force Field Tutorial](force-field-tutorial.md)
+- [Calculate binding energy with the PMF Tutorial](pmf-tutorial.md)
+- [Automate builds with the Batch Processing Tutorial](batch-tutorial.md)
+- [Explore the full User Guide](../user-guide/index.md)
+
+</div>

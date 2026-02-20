@@ -1,416 +1,193 @@
 # PMF Calculations
 
+PRISM automates **Potential of Mean Force (PMF)** calculations for estimating protein-ligand binding free energies using steered MD, umbrella sampling, and WHAM analysis.
+
+!!! example "Quick Start"
+    ```bash
+    prism protein.pdb ligand.mol2 -o output --pmf
+    ```
+
 ## Overview
 
-PRISM provides a complete **Potential of Mean Force (PMF)** calculation workflow for determining protein-ligand binding free energies. The PMF module automates the entire process from equilibrated MD systems to binding energy estimates using umbrella sampling and WHAM analysis.
-
 !!! info "What is PMF?"
-    The Potential of Mean Force (PMF) describes the free energy change along a reaction coordinate. For protein-ligand binding, this typically means pulling the ligand away from the binding pocket and calculating the binding free energy from the resulting energy profile.
+    The Potential of Mean Force describes the free energy change along a reaction coordinate. For protein-ligand binding, PRISM pulls the ligand away from the binding pocket and calculates the binding free energy from the resulting energy profile.
 
-## Workflow Overview
-
-The PRISM PMF workflow consists of three main stages:
+The PRISM PMF workflow consists of three stages:
 
 ```mermaid
 graph LR
-    A[Equilibrated MD System] --> B[Steered MD SMD]
+    A[Equilibrated System] --> B[Steered MD]
     B --> C[Umbrella Sampling]
     C --> D[WHAM Analysis]
     D --> E[Binding Free Energy]
 ```
 
-1. **Steered Molecular Dynamics (SMD)**: Pull the ligand away from the protein
-2. **Umbrella Sampling**: Generate configurations along the unbinding pathway
-3. **WHAM Analysis**: Calculate the PMF profile and binding free energy
+1. **Steered MD (SMD)**: Pull the ligand out of the binding pocket along an optimized direction
+2. **Umbrella Sampling**: Restrain the ligand at evenly spaced windows along the unbinding pathway
+3. **WHAM Analysis**: Reconstruct the PMF profile and extract binding free energy
 
-## Quick Start
+## Step-by-Step Walkthrough
 
-### One-Step PMF Calculation
+### Step 1: Build the PMF-Ready System
 
-For a fully automated PMF calculation:
-
-```python
-import prism as pm
-
-# Run complete PMF workflow
-results = pm.run_pmf_workflow(
-    md_system_dir="./my_system",      # Directory with equilibrated MD
-    output_dir="./pmf_results"
-)
-
-print(f"Binding energy: {results['binding_energy']['value']:.2f} kcal/mol")
-print(f"Standard error: {results['binding_energy']['error']:.2f} kcal/mol")
-```
-
-### Step-by-Step Control
-
-For more control over each stage:
-
-```python
-import prism as pm
-
-# Create PMF system
-pmf_sys = pm.pmf_system("./my_system", "./pmf_results")
-
-# Step 1: Build and run SMD
-smd_results = pmf_sys.build(step='smd')
-# Manually run: bash ./pmf_results/pmf_smd/run_smd.sh
-
-# Step 2: Build umbrella sampling windows
-umbrella_results = pmf_sys.build_umbrella_step()
-# Manually run: bash ./pmf_results/pmf_umbrella/run_all_umbrella.sh
-
-# Step 3: Run WHAM analysis
-analysis_results = pmf_sys.build_analysis_step()
-print(f"Binding energy: {analysis_results['binding_energy']['value']:.2f} kcal/mol")
-```
-
-## Configuration
-
-### Creating Configuration Files
-
-PRISM provides templates for different accuracy levels:
-
-```python
-import prism as pm
-
-# Fast calculations (for testing)
-pm.create_pmf_config("pmf_fast.yaml", template="fast")
-
-# Balanced (default)
-pm.create_pmf_config("pmf_default.yaml", template="default")
-
-# High accuracy
-pm.create_pmf_config("pmf_accurate.yaml", template="accurate")
-```
-
-### Configuration Options
-
-Example configuration file (`pmf_config.yaml`):
-
-```yaml
-# SMD Configuration
-smd:
-  pull_rate: 0.01          # nm/ps (slower = more accurate)
-  nsteps: 1000000          # Total SMD steps
-  pull_group1: "Protein"   # Reference group
-  pull_group2: "LIG"       # Pulled group (ligand)
-  pull_geometry: "distance"
-  pull_dim: "Y Y Y"        # Pull in all directions
-
-# Umbrella Sampling Configuration
-umbrella:
-  n_windows: 40            # Number of umbrella windows
-  window_spacing: 0.05     # nm between windows
-  force_constant: 3000     # kJ/mol/nm^2
-  production_time_ps: 10000  # Production time per window
-
-# WHAM Configuration
-wham:
-  temperature: 300         # K
-  bins: 100                # Number of histogram bins
-  tolerance: 1e-6          # Convergence tolerance
-  iterations: 100000       # Max WHAM iterations
-```
-
-### Using Custom Configurations
-
-```python
-import prism as pm
-
-# From file
-results = pm.run_pmf_workflow(
-    "./my_system",
-    "./pmf_results",
-    config="pmf_accurate.yaml"
-)
-
-# From dictionary
-config = {
-    'smd': {'pull_rate': 0.005, 'nsteps': 2000000},
-    'umbrella': {'n_windows': 50, 'production_time_ps': 15000}
-}
-results = pm.run_pmf_workflow("./my_system", "./pmf_results", config=config)
-```
-
-## Detailed Workflow
-
-### Stage 1: Steered Molecular Dynamics (SMD)
-
-SMD gradually pulls the ligand away from the protein:
-
-```python
-# Prepare SMD simulation
-smd_results = pm.run_pmf_step(
-    "./my_system",
-    "./pmf_results",
-    step="smd",
-    config={"smd": {"pull_rate": 0.01, "nsteps": 1000000}}
-)
-
-# SMD files are generated in ./pmf_results/pmf_smd/
-# Run: bash ./pmf_results/pmf_smd/run_smd.sh
-```
-
-**Key SMD Parameters:**
-
-- `pull_rate`: Pulling speed (0.005-0.02 nm/ps recommended)
-  - Slower = more accurate but computationally expensive
-  - Faster = less accurate but faster to run
-- `nsteps`: Total simulation steps (typically 1-5M steps)
-- `pull_geometry`: Usually "distance" for unbinding
-
-### Stage 2: Umbrella Sampling
-
-Generate restrained simulations along the unbinding pathway:
-
-```python
-# Prepare umbrella sampling windows
-umbrella_results = pm.run_pmf_step(
-    "./my_system",
-    "./pmf_results",
-    step="umbrella",
-    config={
-        "umbrella": {
-            "n_windows": 40,
-            "force_constant": 3000,
-            "production_time_ps": 10000
-        }
-    }
-)
-
-# Run: bash ./pmf_results/pmf_umbrella/run_all_umbrella.sh
-```
-
-**Key Umbrella Parameters:**
-
-- `n_windows`: Number of sampling windows (30-50 recommended)
-  - More windows = better overlap = more accurate
-- `window_spacing`: Distance between windows (0.05-0.1 nm)
-- `force_constant`: Restraint strength (1000-5000 kJ/mol/nm²)
-  - Higher = better sampling but requires more windows
-- `production_time_ps`: Sampling time per window (5-20 ns)
-
-### Stage 3: WHAM Analysis
-
-Calculate the PMF profile and extract binding energy:
-
-```python
-# Run WHAM analysis
-analysis_results = pm.run_pmf_step(
-    "./my_system",
-    "./pmf_results",
-    step="analysis"
-)
-
-# Extract results
-binding_energy = analysis_results['binding_energy']['value']  # kcal/mol
-error = analysis_results['binding_energy']['error']           # kcal/mol
-pmf_profile = analysis_results['pmf_profile']                 # Array of PMF values
-
-print(f"ΔG_bind = {binding_energy:.2f} ± {error:.2f} kcal/mol")
-```
-
-**Output Files:**
-
-- `pmf_profile.dat`: PMF values along reaction coordinate
-- `pmf_plot.png`: Visualization of PMF profile
-- `binding_energy.txt`: Summary of binding energy
-- `wham.log`: Detailed WHAM convergence information
-
-## Analysis and Visualization
-
-### Examining PMF Profiles
-
-```python
-import matplotlib.pyplot as plt
-import numpy as np
-
-# Load PMF profile
-data = np.loadtxt("./pmf_results/pmf_analysis/pmf_profile.dat")
-distance = data[:, 0]  # nm
-pmf = data[:, 1]       # kJ/mol
-
-# Plot
-plt.figure(figsize=(10, 6))
-plt.plot(distance, pmf, 'b-', linewidth=2)
-plt.xlabel('Distance (nm)', fontsize=14)
-plt.ylabel('PMF (kJ/mol)', fontsize=14)
-plt.title('Protein-Ligand Unbinding PMF', fontsize=16)
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plt.savefig('pmf_analysis.png', dpi=300)
-```
-
-### Checking Convergence
-
-Monitor umbrella sampling convergence:
+The `--pmf` flag tells PRISM to extend the simulation box along the pulling axis, align the system for optimal pulling, and generate SMD/umbrella MDP files:
 
 ```bash
-# Check if windows have sufficient overlap
-cd pmf_results/pmf_umbrella
-for dir in window_*/; do
-    echo "$dir: $(tail -1 $dir/umbrella.log | awk '{print $2}')"
-done
-
-# WHAM convergence
-grep "It" pmf_results/pmf_analysis/wham.log | tail -20
+prism protein.pdb ligand.mol2 -o pmf_output --pmf
 ```
 
-### Calculating Binding Affinity
+PRISM automatically:
 
-Convert PMF binding energy to K_d:
+- Detects the binding pocket and selects an optimal pulling direction
+- Aligns the system so the pulling axis is along the Z-axis
+- Extends the box in the pulling direction to accommodate ligand unbinding
+- Generates steered MD and umbrella sampling parameter files
+- Creates run scripts for all stages
 
-```python
-import numpy as np
+### Step 2: Run Steered MD
 
-# Binding energy in kcal/mol
-dG_bind = -8.5  # Example value
-
-# Convert to dissociation constant
-R = 1.987e-3  # kcal/(mol·K)
-T = 300       # K
-Kd = np.exp(dG_bind / (R * T))
-
-print(f"K_d = {Kd*1e9:.2f} nM")
+```bash
+cd pmf_output/GMX_PROLIG_MD
+bash run_smd.sh
 ```
 
-## Best Practices
+This pulls the ligand from the bound state to a fully dissociated state.
 
-### Computational Resources
+### Step 3: Run Umbrella Sampling
 
-PMF calculations are computationally intensive:
+After SMD completes, PRISM extracts configurations at regular intervals and sets up restrained simulations:
 
-| Stage | CPU Time | GPU Speedup | Parallelization |
-|-------|----------|-------------|-----------------|
-| SMD | 4-24 hours | 5-10× | Single run |
-| Umbrella | 50-500 hours | 5-10× | Parallel windows |
-| WHAM | <1 hour | N/A | Single run |
-
-**Recommendations:**
-
-- Use GPUs for SMD and umbrella sampling
-- Run umbrella windows in parallel (40 windows × 10 ns = 400 ns total)
-- Request cluster resources accordingly
-
-### Ensuring Accuracy
-
-1. **Check SMD pulling speed:**
-   ```python
-   # Too fast if force > 1000 kJ/mol/nm during pull
-   # Reduce pull_rate if this occurs
-   ```
-
-2. **Verify umbrella overlap:**
-   - Adjacent windows should overlap in configuration space
-   - Check histogram overlap: `gmx wham -hist`
-
-3. **Assess convergence:**
-   - PMF should be smooth without large fluctuations
-   - Binding energy error should be < 1 kcal/mol
-   - Try increasing `production_time_ps` if error is large
-
-4. **Validate results:**
-   - Compare with experimental binding affinity if available
-   - Test different force constants and window counts
-   - Run multiple independent calculations
-
-### Common Issues
-
-!!! warning "Ligand breaks through protein"
-    If the ligand pulls through the protein instead of unbinding:
-    - Adjust pull direction in configuration
-    - Use `pull_dim: "Y Y N"` to restrict pulling axis
-    - Increase SMD force constant
-
-!!! warning "Poor WHAM convergence"
-    If WHAM doesn't converge:
-    - Increase number of umbrella windows
-    - Extend umbrella sampling time
-    - Check for insufficient window overlap
-
-!!! warning "Unrealistic binding energy"
-    If binding energy seems wrong:
-    - Verify system is properly equilibrated before PMF
-    - Check that ligand is correctly parameterized
-    - Ensure protein-ligand complex is stable in initial MD
-
-## Advanced Usage
-
-### Custom Pull Directions
-
-For non-standard binding pockets:
-
-```yaml
-smd:
-  pull_vec1: "0 0 0"      # Pull along specific vector
-  pull_vec2: "1 0 0"      # X-direction only
-  pull_geometry: "direction"
+```bash
+bash run_umbrella.sh
 ```
 
-### Multiple Binding Modes
+Each umbrella window runs independently and can be parallelized on a cluster.
 
-Calculate PMF for different unbinding pathways:
+### Step 4: Run WHAM Analysis
 
-```python
-# Pathway 1: Pull along Z-axis
-config1 = {'smd': {'pull_dim': 'N N Y'}}
-results1 = pm.run_pmf_workflow("./system", "./pmf_z", config=config1)
-
-# Pathway 2: Pull along X-axis
-config2 = {'smd': {'pull_dim': 'Y N N'}}
-results2 = pm.run_pmf_workflow("./system", "./pmf_x", config=config2)
-
-# Compare binding energies
-print(f"Z-axis: {results1['binding_energy']['value']:.2f} kcal/mol")
-print(f"X-axis: {results2['binding_energy']['value']:.2f} kcal/mol")
+```bash
+bash run_wham.sh
 ```
 
-### Cluster Submission
+This produces the final PMF profile and binding free energy estimate.
 
-Example SLURM script for umbrella sampling:
+## Options Reference
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--pmf` | Enable PMF calculation mode | off |
+| `--pull-vector PROT LIG` | Atom indices defining the pulling direction (protein atom, ligand atom) | auto-detected |
+| `--box-extension X Y Z` | Extra box length in each dimension (nm) | auto |
+| `--umbrella-time` | Production time per umbrella window (ns) | `10.0` |
+| `--umbrella-spacing` | Distance between umbrella windows (nm) | `0.12` |
+| `--wham-begin` | Discard initial frames before WHAM (ps) | `1000` |
+| `--wham-bootstrap` | Number of bootstrap samples for error estimation | `200` |
+
+## Customizing the PMF Workflow
+
+### Specifying the Pulling Direction
+
+By default, PRISM uses a Metropolis-Hastings optimization to find the pulling direction with the fewest steric clashes. To override this with specific atom indices:
+
+```bash
+prism protein.pdb ligand.mol2 -o output --pmf --pull-vector 100 200
+```
+
+Here `100` is the index of a protein atom near the pocket entrance and `200` is a ligand atom index.
+
+### Adjusting Umbrella Sampling
+
+For higher accuracy, decrease the window spacing and increase the sampling time:
+
+```bash
+prism protein.pdb ligand.mol2 -o output --pmf \
+  --umbrella-spacing 0.08 \
+  --umbrella-time 20
+```
+
+For a quick test, use wider spacing and shorter sampling:
+
+```bash
+prism protein.pdb ligand.mol2 -o output --pmf \
+  --umbrella-spacing 0.2 \
+  --umbrella-time 5
+```
+
+### Extending the Box
+
+If the ligand needs to be pulled further from the protein, extend the box explicitly:
+
+```bash
+prism protein.pdb ligand.mol2 -o output --pmf \
+  --box-extension 0.0 0.0 5.0
+```
+
+## Cluster Submission
+
+Umbrella windows are independent and can be submitted as an array job:
 
 ```bash
 #!/bin/bash
 #SBATCH --job-name=pmf_umbrella
-#SBATCH --array=0-39           # 40 windows
+#SBATCH --array=0-39
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1
 #SBATCH --time=24:00:00
 
-# Load GROMACS
-module load gromacs/2023-cuda
+module load gromacs/2024.3
 
-# Run specific umbrella window
-cd pmf_results/pmf_umbrella/window_${SLURM_ARRAY_TASK_ID}
+cd pmf_output/GMX_PROLIG_MD/umbrella/window_${SLURM_ARRAY_TASK_ID}
 gmx mdrun -deffnm umbrella -v -nb gpu -pme gpu
 ```
 
-## PMF Module Information
+## Computational Resources
 
-Check PMF module capabilities:
+| Stage | Typical Time | Parallelization |
+| --- | --- | --- |
+| SMD | 4-24 hours (single GPU) | Single run |
+| Umbrella | 50-500 hours total | Parallel windows |
+| WHAM | < 1 hour (CPU) | Single run |
 
-```python
-import prism as pm
+## Checking Convergence
 
-info = pm.get_pmf_info()
-print(f"PMF module version: {info['version']}")
-print(f"Supported force fields: {info['supported_forcefields']}")
-print(f"Available templates: {info['templates']}")
-```
+After WHAM analysis, verify the results:
+
+1. **Check histogram overlap:** Adjacent windows must overlap in configuration space
+    ```bash
+    gmx wham -hist -f pullf-files.dat -it tpr-files.dat
+    ```
+
+2. **Inspect the PMF profile:** It should be smooth without large jumps
+
+3. **Check bootstrap errors:** The error from `--wham-bootstrap` should be < 1 kcal/mol
+
+## Common Issues
+
+!!! warning "Ligand pulls through protein"
+    The pulling direction passes through the protein body instead of exiting the pocket.
+    **Fix:** Use `--pull-vector` to specify the correct unbinding path, or let PRISM auto-detect it (the default uses Metropolis-Hastings optimization).
+
+!!! warning "Poor WHAM convergence"
+    Large gaps in the PMF profile or very high error bars.
+    **Fix:** Decrease `--umbrella-spacing` and/or increase `--umbrella-time`.
+
+!!! warning "Unrealistic binding energy"
+    The computed binding energy does not match expectations.
+    **Fix:** Ensure the system was properly equilibrated before PMF. Verify ligand parameterization. Try running multiple independent calculations.
 
 ## References
-
-For more information on PMF calculations and umbrella sampling:
 
 1. Torrie, G. M., & Valleau, J. P. (1977). *J. Comput. Phys.*, 23(2), 187-199.
 2. Kumar, S., et al. (1992). *J. Comput. Chem.*, 13(8), 1011-1021.
 3. Hub, J. S., et al. (2010). *J. Chem. Theory Comput.*, 6(10), 3713-3720.
 
-## See Also
+<div class="whats-next" markdown>
 
-- [Running Simulations](running-simulations.md) - Equilibrating systems before PMF
-- [Analysis Tools](analysis-tools.md) - Analyzing PMF trajectories
-- [PMF API Reference](../api/pmf.md) - Detailed API documentation
-- [PMF Tutorial](../tutorials/pmf-tutorial.md) - Step-by-step PMF example
+## What's Next
+
+- [Follow the PMF Tutorial for a step-by-step example](../tutorials/pmf-tutorial.md)
+- [Learn about Running Simulations for equilibration before PMF](running-simulations.md)
+- [See Analysis Tools for examining PMF trajectories](analysis-tools.md)
+
+</div>

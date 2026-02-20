@@ -2,6 +2,18 @@
 
 PRISM provides comprehensive analysis and visualization tools for molecular dynamics trajectories, with special focus on protein-ligand interactions.
 
+!!! example "Quick Start"
+    ```python
+    from prism.analysis.visualization import generate_html
+
+    generate_html(
+        trajectory="prod/md.xtc",
+        topology="prod/md.tpr",
+        ligand="ligand.sdf",
+        output="contact_analysis.html"
+    )
+    ```
+
 ## Quick Start
 
 ### Basic Analysis
@@ -648,8 +660,30 @@ with pd.ExcelWriter("analysis_results.xlsx") as writer:
     contacts_df.to_excel(writer, sheet_name="Contacts", index=False)
 ```
 
-## Next Steps
+## MM/PBSA Binding Energy
 
-- Review [Output Files](output-files.md) structure
-- Troubleshoot issues with [Troubleshooting Guide](troubleshooting.md)
-- Explore [PMF Calculations](pmf-calculations.md) for advanced analysis
+PRISM can set up MM/PBSA binding energy calculations using gmx_MMPBSA:
+
+```bash
+# Run MM/PBSA on the last 10 ns of trajectory
+prism protein.pdb ligand.mol2 -o output --mmpbsa --mmpbsa-traj 10
+
+# With GROMACS-to-AMBER topology conversion
+prism protein.pdb ligand.mol2 -o output --mmpbsa --gmx2amber
+```
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--mmpbsa` / `-pbsa` | Enable MM/PBSA calculation | off |
+| `--mmpbsa-traj` | Trajectory segment to analyze (ns) | full trajectory |
+| `--gmx2amber` | Convert GROMACS topology to AMBER format | off |
+
+<div class="whats-next" markdown>
+
+## What's Next
+
+- [Review the Output Files guide to understand PRISM's directory structure](output-files.md)
+- [Troubleshoot common issues](troubleshooting.md)
+- [Calculate binding free energy with PMF](pmf-calculations.md)
+
+</div>

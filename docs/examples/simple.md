@@ -1,5 +1,11 @@
 # Simple Protein-Ligand Example
 
+!!! example "Quick Start"
+    ```bash
+    prism protein.pdb ligand.mol2 -o t4_lysozyme_benzene
+    cd t4_lysozyme_benzene/GMX_PROLIG_MD && bash localrun.sh
+    ```
+
 A complete, minimal example demonstrating the PRISM workflow from protein and ligand files to a production-ready MD system.
 
 ## Overview
@@ -393,8 +399,12 @@ python run_example.py
 
 ---
 
-## Questions?
+<div class="whats-next" markdown>
 
-- See [Troubleshooting Guide](../user-guide/troubleshooting.md)
-- Check [API Documentation](../api/index.md)
-- Ask in [GitHub Discussions](https://github.com/AIB001/PRISM/discussions)
+## What's Next
+
+- [Compare force fields in the Multi-Force Field Example](multi-forcefield.md)
+- [Customize parameters in the Custom Config Example](custom-config.md)
+- [Follow a guided Batch Processing Tutorial](../tutorials/batch-tutorial.md)
+
+</div>

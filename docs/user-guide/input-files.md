@@ -2,6 +2,13 @@
 
 PRISM requires two primary input files: a protein structure and a ligand structure. This guide covers file formats, preparation methods, and best practices for preparing high-quality input files.
 
+!!! example "Quick Start"
+    ```bash
+    # Protein: standard PDB file
+    # Ligand: MOL2 (for GAFF) or SDF (for OpenFF)
+    prism protein.pdb ligand.mol2 -o output
+    ```
+
 ## Required Input Files
 
 ### Protein Structure (PDB)
@@ -485,8 +492,12 @@ Before running PRISM, verify:
 - [ ] File formats are correct
 - [ ] Files are in the same directory or paths are correct
 
-## Next Steps
+<div class="whats-next" markdown>
 
-- Learn about [Building Systems](building-systems.md)
-- Understand [Force Fields](force-fields.md) selection
-- Configure your [simulation parameters](configuration.md)
+## What's Next
+
+- [Build your system with the Building Systems guide](building-systems.md)
+- [Choose the right force field](force-fields.md)
+- [Configure simulation parameters](configuration.md)
+
+</div>

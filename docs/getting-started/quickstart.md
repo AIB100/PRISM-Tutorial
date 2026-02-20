@@ -2,6 +2,12 @@
 
 Get started with PRISM in 5 minutes! This guide demonstrates the complete workflow from preparing input files to running MD simulations.
 
+!!! example "Quick Start"
+    ```bash
+    prism protein.pdb ligand.mol2 -o my_simulation
+    cd my_simulation/GMX_PROLIG_MD && bash localrun.sh
+    ```
+
 ## Prerequisites Check
 
 Before starting, ensure you have:
@@ -396,22 +402,13 @@ echo "Protein LIG" | gmx hbond -s md.tpr -f md.xtc -num hbonds.xvg
 
 ---
 
-## Next Steps
+<div class="whats-next" markdown>
 
-!!! success "Ready for More?"
+## What's Next
 
-    **Learn More:**
-    - [User Guide](../user-guide/index.md) - Detailed documentation
-    - [Force Fields Guide](../user-guide/force-fields.md) - Choosing the right force field
-    - [Analysis Tools](../user-guide/analysis-tools.md) - Advanced analysis
+- [Explore force field options in the Force Fields Guide](../user-guide/force-fields.md)
+- [Learn about analysis tools for your trajectories](../user-guide/analysis-tools.md)
+- [Set up PMF calculations for binding free energy](../user-guide/pmf-calculations.md)
+- [Read the full User Guide for detailed documentation](../user-guide/index.md)
 
-    **Advanced Topics:**
-    - PMF calculations (binding free energy)
-    - MM/PBSA calculations
-    - High-throughput screening workflows
-
----
-
-<p align="center">
-  <strong>🎉 You've successfully built your first PRISM system!</strong>
-</p>
+</div>

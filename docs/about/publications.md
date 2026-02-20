@@ -14,7 +14,7 @@ If you use PRISM in your research, please cite:
   title = {PRISM: Protein Receptor Interaction Simulation Modeler},
   year = {2024},
   version = {1.2.0},
-  institution = {Theoretical Chemistry Institute, University of Wisconsin-Madison},
+  institution = {Institute of Quantitative Biology, Zhejiang University},
   url = {https://github.com/AIB001/PRISM}
 }
 ```
@@ -100,14 +100,14 @@ Publications describing PRISM methodology and applications (in preparation):
 ### 2023
 
 - **PRISM Development and Applications**  
-  UW-Madison TCI Seminar Series
+  Zhejiang University IQB Seminar Series
 
 ---
 
 ## Theses and Dissertations
 
 **PhD Dissertation**
-- Shi, Z. (Expected 2025). Development and Application of PRISM for Protein-Ligand Simulations. University of Wisconsin-Madison.
+- Shi, Z. (Expected 2025). Development and Application of PRISM for Protein-Ligand Simulations. Zhejiang University.
 
 ---
 

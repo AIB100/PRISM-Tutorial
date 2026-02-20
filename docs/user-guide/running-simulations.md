@@ -2,21 +2,12 @@
 
 After building your protein-ligand system with PRISM, you're ready to run molecular dynamics simulations using GROMACS. This guide covers the complete simulation workflow from energy minimization to production MD.
 
-## Quick Start
-
-### The Easiest Way
-
-PRISM generates a ready-to-run script automatically:
-
-```bash
-# After building with PRISM
-cd my_system/GMX_PROLIG_MD
-
-# Run the complete workflow (EM → NVT → NPT → Production)
-bash localrun.sh
-```
-
-That's it! The script handles everything automatically with checkpoint restart support.
+!!! example "Quick Start"
+    ```bash
+    cd my_system/GMX_PROLIG_MD
+    bash localrun.sh
+    ```
+    The auto-generated script runs the complete EM → NVT → NPT → Production workflow with checkpoint restart support.
 
 ---
 
@@ -720,15 +711,34 @@ Cannot allocate memory
 
 ---
 
-## Next Steps
+## REST2 Replica Exchange
 
-After your simulation completes:
+PRISM can set up REST2 (Replica Exchange with Solute Tempering 2) simulations for enhanced sampling:
 
-1. **Basic Analysis:** [Analysis Tools](analysis-tools.md)
-2. **RMSD/RMSF:** Structural stability
-3. **Contact Analysis:** Protein-ligand interactions
-4. **Visualization:** Interactive HTML reports
-5. **Advanced:** PMF, MM/PBSA calculations
+```bash
+prism protein.pdb ligand.mol2 -o output --rest2
+```
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--rest2` | Enable REST2 mode | off |
+| `--t-ref` | Reference temperature (K) | `310.0` |
+| `--t-max` | Maximum effective temperature (K) | `450.0` |
+| `--replica-number` | Number of replicas | `16` |
+| `--rest2-cutoff` | Hot region cutoff around ligand (nm) | `0.5` |
+
+REST2 scales the potential energy of the "hot" region (ligand and nearby residues) to achieve enhanced sampling without heating the entire system.
+
+<div class="whats-next" markdown>
+
+## What's Next
+
+- [Analyze your trajectories with the Analysis Tools](analysis-tools.md)
+- [Calculate binding free energy with PMF](pmf-calculations.md)
+- [Understand the output files PRISM generates](output-files.md)
+- [Troubleshoot common simulation errors](troubleshooting.md)
+
+</div>
 
 ---
 

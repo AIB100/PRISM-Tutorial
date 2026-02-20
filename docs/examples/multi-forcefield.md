@@ -1,5 +1,11 @@
 # Multiple Force Fields Comparison Example
 
+!!! example "Quick Start"
+    ```bash
+    prism protein.pdb ligand.mol2 -o gaff_system --ligand-forcefield gaff
+    prism protein.pdb ligand.sdf -o openff_system --ligand-forcefield openff
+    ```
+
 Compare protein-ligand binding across different force fields to assess force field dependence and validate results.
 
 ## Overview
@@ -454,8 +460,12 @@ else:
 
 ---
 
-## Next Steps
+<div class="whats-next" markdown>
 
-- [Custom Configuration Example](custom-config.md)
-- [PMF Calculations](../tutorials/pmf-tutorial.md)
-- [Batch Processing](../tutorials/batch-tutorial.md)
+## What's Next
+
+- [Customize parameters in the Custom Config Example](custom-config.md)
+- [Calculate binding energy with the PMF Tutorial](../tutorials/pmf-tutorial.md)
+- [Automate builds with the Batch Tutorial](../tutorials/batch-tutorial.md)
+
+</div>

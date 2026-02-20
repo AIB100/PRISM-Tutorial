@@ -8,8 +8,8 @@ PRISM is released under the MIT License.
 MIT License
 
 Copyright (c) 2024 Zhaoqi Shi
-Theoretical Chemistry Institute
-University of Wisconsin-Madison
+Institute of Quantitative Biology
+Zhejiang University
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -124,7 +124,7 @@ While not legally required by the MIT License, we kindly request that you cite P
   title = {PRISM: Protein Receptor Interaction Simulation Modeler},
   year = {2024},
   version = {1.2.0},
-  institution = {Theoretical Chemistry Institute, University of Wisconsin-Madison},
+  institution = {Institute of Quantitative Biology, Zhejiang University},
   url = {https://github.com/AIB001/PRISM}
 }
 ```

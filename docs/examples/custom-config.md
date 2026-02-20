@@ -1,5 +1,11 @@
 # Custom Configuration Example
 
+!!! example "Quick Start"
+    ```bash
+    prism --export-config my_config.yaml
+    prism protein.pdb ligand.mol2 -o output --config my_config.yaml
+    ```
+
 Advanced system setup using YAML configuration files for fine-grained control over all PRISM parameters.
 
 ## Overview
@@ -194,7 +200,12 @@ config.show()      # Display all settings
 
 ---
 
-## Related
+<div class="whats-next" markdown>
 
-- [User Guide: Configuration](../user-guide/configuration.md)
-- [API: PRISMBuilder](../api/builder.md)
+## What's Next
+
+- [Read the full Configuration Guide](../user-guide/configuration.md)
+- [See the Builder API Reference](../api/builder.md)
+- [Return to Examples overview](index.md)
+
+</div>

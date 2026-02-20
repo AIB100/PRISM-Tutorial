@@ -1,5 +1,11 @@
 # Force Field Selection Tutorial
 
+!!! example "Quick Start"
+    ```bash
+    prism protein.pdb ligand.mol2 -o gaff_system --ligand-forcefield gaff
+    prism protein.pdb ligand.sdf -o openff_system --ligand-forcefield openff
+    ```
+
 ## Overview
 
 Learn how to select and compare different force fields for your protein-ligand system using PRISM's support for 8+ ligand parameterization methods.
@@ -38,25 +44,25 @@ wget https://github.com/AIB001/PRISM-tutorial-data/raw/main/basic/benzene.mol2
 ### GAFF (Default)
 
 ```bash
-prism protein.pdb benzene.mol2 -o gaff_system --ligand-ff gaff
+prism protein.pdb benzene.mol2 -o gaff_system --ligand-forcefield gaff
 ```
 
 ### GAFF2
 
 ```bash
-prism protein.pdb benzene.mol2 -o gaff2_system --ligand-ff gaff2
+prism protein.pdb benzene.mol2 -o gaff2_system --ligand-forcefield gaff2
 ```
 
 ### OpenFF
 
 ```bash
-prism protein.pdb benzene.mol2 -o openff_system --ligand-ff openff
+prism protein.pdb benzene.mol2 -o openff_system --ligand-forcefield openff
 ```
 
 ### OPLS-AA
 
 ```bash
-prism protein.pdb benzene.mol2 -o opls_system --ligand-ff opls
+prism protein.pdb benzene.mol2 -o opls_system --ligand-forcefield opls
 ```
 
 ## Step 3: Run Simulations
@@ -120,8 +126,13 @@ Compare force fields based on:
 - **OPLS-AA**: Excellent for aromatic systems
 - **CGenFF**: Best for CHARMM protein FF
 
-## Next Steps
+<div class="whats-next" markdown>
 
-- [PMF Tutorial](pmf-tutorial.md) - Calculate binding energies
-- [User Guide: Force Fields](../user-guide/force-fields.md)
+## What's Next
+
+- [Calculate binding energies with the PMF Tutorial](pmf-tutorial.md)
+- [Read the Force Fields Guide for full details](../user-guide/force-fields.md)
+- [Process multiple ligands with the Batch Tutorial](batch-tutorial.md)
+
+</div>
 

@@ -4,35 +4,35 @@ site_author: Zhaoqi Shi
 site_url: https://prism-docs.github.io
 repo_url: https://github.com/AIB001/PRISM
 repo_name: PRISM
-copyright: Copyright &copy; 2024 Zhaoqi Shi, Theoretical Chemistry Institute, UW-Madison
+copyright: Copyright &copy; 2024 Zhaoqi Shi, Institute of Quantitative Biology, Zhejiang University
 
 # Theme configuration
 theme:
   name: material
   language: en
-  
+
   # Color scheme
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
       primary: indigo
-      accent: deep purple
+      accent: blue
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       primary: indigo
-      accent: deep purple
+      accent: blue
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
-  
+
   # Font configuration
   font:
     text: Roboto
     code: Roboto Mono
-  
+
   # Features
   features:
     - announce.dismiss
@@ -60,14 +60,13 @@ theme:
     - search.share
     - search.suggest
     - toc.follow
-    - toc.integrate
-  
+
   # Icons
   icon:
     logo: material/molecule
     repo: fontawesome/brands/github
 
-# Plugins - 简化版，移除可能出错的插件
+# Plugins
 plugins:
   - search:
       separator: '[\s\-\.]'
@@ -146,6 +145,7 @@ nav:
     - Quick Start: getting-started/quickstart.md
   - User Guide:
     - Overview: user-guide/index.md
+    - Input Files: user-guide/input-files.md
     - Building Systems: user-guide/building-systems.md
     - Force Fields: user-guide/force-fields.md
     - Running Simulations: user-guide/running-simulations.md

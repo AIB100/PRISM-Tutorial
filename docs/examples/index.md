@@ -200,8 +200,12 @@ If you encounter issues with examples:
 
 ---
 
-## Next Steps
+<div class="whats-next" markdown>
 
-- Try the [Simple Example](simple.md) to get started
-- Explore [Tutorials](../tutorials/index.md) for guided learning
-- Check [API Documentation](../api/index.md) for detailed reference
+## What's Next
+
+- [Try the Simple Example to get started](simple.md)
+- [Explore Tutorials for guided learning](../tutorials/index.md)
+- [Check the API Reference for scripting details](../api/index.md)
+
+</div>

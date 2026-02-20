@@ -4,10 +4,9 @@
 
 ### Principal Developer
 
-**Zhaoqi Shi**  
-PhD Candidate  
-Theoretical Chemistry Institute  
-University of Wisconsin-Madison
+**Zhaoqi Shi**
+Institute of Quantitative Biology
+Zhejiang University
 
 **Email**: zshi268@wisc.edu  
 **GitHub**: [@AIB100](https://github.com/AIB100)
@@ -22,11 +21,9 @@ University of Wisconsin-Madison
 
 ## Research Group
 
-**Theoretical Chemistry Institute**  
-University of Wisconsin-Madison  
-Madison, WI 53706, USA
-
-**Website**: [https://tci.wisc.edu](https://tci.wisc.edu)
+**Institute of Quantitative Biology**
+Zhejiang University
+Hangzhou, China
 
 ---
 

@@ -2,7 +2,14 @@
 
 This guide provides detailed instructions for installing PRISM and its dependencies on various platforms.
 
-## 📋 Prerequisites
+!!! example "Quick Start"
+    ```bash
+    git clone https://github.com/AIB001/PRISM.git && cd PRISM
+    pip install -e .
+    prism --help
+    ```
+
+## Prerequisites
 
 PRISM requires several components to be installed. Install them in the following order:
 
@@ -129,7 +136,7 @@ conda install -c conda-forge pdbfixer numpy scipy
 pip install pyyaml
 ```
 
-## 🧪 Force Field Specific Dependencies
+## Force Field Specific Dependencies
 
 PRISM supports **8+ ligand force fields**. Install dependencies based on your needs:
 
@@ -195,7 +202,7 @@ conda install -c conda-forge rdkit
 # No additional software - uses SwissParam API
 ```
 
-## 📦 Installing PRISM
+## Installing PRISM
 
 Once all prerequisites are installed, you can install PRISM:
 
@@ -229,7 +236,7 @@ cd PRISM
 python -m prism.builder protein.pdb ligand.mol2 -o output_dir
 ```
 
-## ✅ Verification
+## Verification
 
 After installation, verify that everything is working correctly:
 
@@ -255,28 +262,20 @@ python -c "import yaml; print('YAML: OK')"
 python -c "import numpy; print('NumPy: OK')"
 ```
 
-### Check Available Dependencies
+### Check Force Field Dependencies
 
-Use PRISM's built-in dependency checker:
+```bash
+# Check if AmberTools is available (for GAFF/GAFF2)
+which antechamber && echo "AmberTools: OK"
 
-```python
-import prism
+# Check if ACPYPE is available
+which acpype && echo "ACPYPE: OK"
 
-# Check all dependencies
-deps = prism.check_dependencies()
-for name, available in deps.items():
-    status = "✓" if available else "✗"
-    print(f"{status} {name}")
-```
+# Check if OpenFF is available
+python -c "import openff.toolkit; print('OpenFF: OK')" 2>/dev/null || echo "OpenFF: not installed (optional)"
 
-Expected output:
-```
-✓ gromacs
-✓ pdbfixer
-✓ antechamber     # For GAFF/GAFF2
-✗ openff          # Optional
-✓ mdtraj          # Optional for analysis
-✓ rdkit           # Optional for visualization
+# Check if RDKit is available
+python -c "import rdkit; print('RDKit: OK')" 2>/dev/null || echo "RDKit: not installed (optional)"
 ```
 
 ### List Available Force Fields
@@ -297,7 +296,7 @@ ls -lh test_output/
 ls -lh test_output/GMX_PROLIG_MD/
 ```
 
-## 🔧 Environment Variables
+## Environment Variables
 
 Set these environment variables for optimal performance:
 
@@ -318,7 +317,7 @@ export PRISM_HOME=/path/to/PRISM
 export PATH=$PRISM_HOME/bin:$PATH
 ```
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Common Installation Issues
 
@@ -389,14 +388,14 @@ cmake .. -DGMX_MPI=ON \
          -DCMAKE_INSTALL_PREFIX=/opt/gromacs-2024.3
 ```
 
-## 📚 Additional Resources
+## Additional Resources
 
 - [GROMACS Installation Guide](http://manual.gromacs.org/documentation/current/install-guide/index.html)
 - [AmberTools Documentation](https://ambermd.org/AmberTools.php)
 - [OpenFF Documentation](https://docs.openforcefield.org/)
 - [PRISM GitHub Repository](https://github.com/your-username/PRISM)
 
-## 🤝 Getting Help
+## Getting Help
 
 If you encounter issues during installation:
 
@@ -405,13 +404,12 @@ If you encounter issues during installation:
 3. Post on [GitHub Discussions](https://github.com/AIB001/PRISM/discussions)
 4. Contact: [author email](mailto:zshi268@wisc.edu)
 
----
+<div class="whats-next" markdown>
 
-## ✨ Next Steps
+## What's Next
 
-After successful installation:
+- [Build your first system in the Quick Start guide](quickstart.md)
+- [Learn about force field options](../user-guide/force-fields.md)
+- [Read the full User Guide](../user-guide/index.md)
 
-<div style="text-align: center; margin-top: 2rem;">
-  <a href="quickstart/" class="md-button md-button--primary">Quick Start Tutorial</a>
-  <a href="concepts/" class="md-button">Basic Concepts</a>
 </div>

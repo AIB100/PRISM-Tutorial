@@ -8,7 +8,7 @@ PRISM's mission is to make high-quality molecular dynamics simulations accessibl
 
 ## History
 
-PRISM was developed at the Theoretical Chemistry Institute, University of Wisconsin-Madison, starting in 2023 to address the need for:
+PRISM was developed at the Institute of Quantitative Biology, Zhejiang University, starting in 2023 to address the need for:
 
 - **Automation**: Eliminate manual, error-prone system building steps
 - **Flexibility**: Support multiple force field options
@@ -95,7 +95,7 @@ If you use PRISM in your research, please cite:
   title = {PRISM: Protein Receptor Interaction Simulation Modeler},
   year = {2024},
   version = {1.2.0},
-  institution = {Theoretical Chemistry Institute, University of Wisconsin-Madison},
+  institution = {Institute of Quantitative Biology, Zhejiang University},
   url = {https://github.com/AIB001/PRISM}
 }
 ```
@@ -103,7 +103,7 @@ If you use PRISM in your research, please cite:
 ## Acknowledgments
 
 PRISM development has been supported by:
-- Theoretical Chemistry Institute, UW-Madison
+- Institute of Quantitative Biology, Zhejiang University
 - Open source community contributions
 - Feedback from users worldwide
 
@@ -113,9 +113,9 @@ PRISM is released under the MIT License, allowing free use in academic and comme
 
 ---
 
-**Developed at:**  
-Theoretical Chemistry Institute  
-University of Wisconsin-Madison  
+**Developed at:**
+Institute of Quantitative Biology
+Zhejiang University
 
 **Principal Developer:**  
 Zhaoqi Shi

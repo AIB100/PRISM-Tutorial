@@ -1,10 +1,15 @@
 # Getting Started
 
-Welcome to PRISM! This guide will help you get up and running with PRISM quickly and efficiently.
+PRISM automates the setup of protein-ligand molecular dynamics systems for GROMACS.
 
-## 🎯 What You'll Learn
+!!! example "Quick Start"
+    ```bash
+    git clone https://github.com/AIB001/PRISM.git && cd PRISM
+    pip install -e .
+    prism protein.pdb ligand.mol2 -o my_system
+    ```
 
-This section covers everything you need to know to start using PRISM:
+## Choose Your Path
 
 <div class="grid cards" markdown>
 
@@ -12,100 +17,49 @@ This section covers everything you need to know to start using PRISM:
 
     ---
 
-    System requirements, installation methods, and verification steps
+    Install GROMACS, Python dependencies, and PRISM itself
 
 -   :material-rocket-launch:{ .lg .middle } **[Quick Start](quickstart.md)**
 
     ---
 
-    Your first PRISM analysis in under 5 minutes
-
--   :material-book-education:{ .lg .middle } **Basic Concepts**
-
-    ---
-
-    Core concepts covered in the Quick Start guide
+    Build your first protein-ligand system in under 5 minutes
 
 </div>
 
-## 📋 Prerequisites
+## Prerequisites
 
 Before you begin, ensure you have:
 
-- **Python 3.8 or higher** installed on your system
-- **Basic knowledge** of Python programming
-- **Molecular dynamics data** (optional, we provide sample data)
+- **Python 3.8+** installed (3.10 recommended)
+- **GROMACS 2024.3+** installed and sourced
+- A protein PDB file and a ligand MOL2/SDF file
 
-## 🚀 Quick Start Path
-
-If you're eager to get started, follow this quick path:
-
-1. **Install PRISM** using pip:
-   ```bash
-   pip install prism-md
-   ```
-
-2. **Verify installation**:
-   ```python
-   import prism
-   print(prism.__version__)
-   ```
-
-3. **Run your first analysis**:
-   ```python
-   from prism.examples import load_sample_data
-   from prism.analysis import quick_analysis
-   
-   # Load sample data
-   traj = load_sample_data('protein')
-   
-   # Run quick analysis
-   results = quick_analysis(traj)
-   results.summary()
-   ```
-
-## 📚 Learning Resources
-
-### For Beginners
-
-!!! tip "New to Molecular Dynamics?"
-    If you're new to molecular dynamics simulations, we recommend:
-
-    1. Read the [Quick Start](quickstart.md) guide
-    2. Follow the [Basic Tutorial](../tutorials/basic-tutorial.md)
-    3. Explore [Simple Examples](../examples/simple.md)
-
-### For Experienced Users
-
-!!! info "Coming from other MD tools?"
-    If you're experienced with GROMACS or other MD tools:
-
-    - Review the [Force Fields Guide](../user-guide/force-fields.md)
-    - Explore advanced [PMF Calculations](../user-guide/pmf-calculations.md)
-    - Check the [API Reference](../api/index.md)
-
-## 🎓 Tutorial Pathway
-
-We recommend following this learning pathway:
+## Learning Path
 
 ```mermaid
 graph LR
     A[Installation] --> B[Quick Start]
-    B --> C[Basic Concepts]
-    C --> D[Basic Tutorial]
-    D --> E[User Guide]
-    E --> F[Advanced Topics]
+    B --> C[User Guide]
+    C --> D[Tutorials]
+    D --> E[Advanced Topics]
 ```
 
-## 💡 Tips for Success
+### For Beginners
 
-!!! success "Best Practices"
-    - **Start small**: Begin with simple analyses before moving to complex workflows
-    - **Use sample data**: Practice with our provided datasets before using your own
-    - **Read error messages**: PRISM provides detailed error messages to help you debug
-    - **Join the community**: Ask questions in our [GitHub Discussions](https://github.com/username/PRISM/discussions)
+!!! tip "New to PRISM?"
+    1. Follow the [Installation](installation.md) guide
+    2. Run through the [Quick Start](quickstart.md) with your own files
+    3. Read the [Basic Tutorial](../tutorials/basic-tutorial.md) for a step-by-step walkthrough
 
-## 🔧 Troubleshooting
+### For Experienced Users
+
+!!! info "Coming from other MD tools?"
+    - Jump to [Force Fields Guide](../user-guide/force-fields.md) for supported options
+    - See [PMF Calculations](../user-guide/pmf-calculations.md) for binding free energy
+    - Browse the [API Reference](../api/index.md) for scripting
+
+## Troubleshooting
 
 Having issues? Check these resources:
 
@@ -113,37 +67,12 @@ Having issues? Check these resources:
 - [User Guide Troubleshooting](../user-guide/troubleshooting.md)
 - [GitHub Issues](https://github.com/AIB001/PRISM/issues)
 
-## 📊 Sample Datasets
+<div class="whats-next" markdown>
 
-PRISM comes with several sample datasets for learning:
+## What's Next
 
-| Dataset | Description | Size | Use Case |
-|---------|-------------|------|----------|
-| `protein` | Small protein in water | 10 MB | Basic analysis |
-| `membrane` | Lipid bilayer system | 50 MB | Membrane analysis |
-| `polymer` | Polymer chain | 5 MB | Polymer analysis |
-| `crystal` | Crystal structure | 2 MB | Solid-state analysis |
-
-Load them using:
-```python
-from prism.examples import load_sample_data
-traj = load_sample_data('protein')  # or 'membrane', 'polymer', 'crystal'
-```
-
-## 🎉 Ready to Begin?
-
-<div class="grid" markdown>
-
-[Install PRISM :material-arrow-right:](installation.md){ .md-button .md-button--primary }
-[Quick Start Guide :material-arrow-right:](quickstart.md){ .md-button }
+- [Install PRISM and its dependencies](installation.md)
+- [Build your first system in the Quick Start guide](quickstart.md)
+- [Explore the User Guide for in-depth documentation](../user-guide/index.md)
 
 </div>
-
----
-
-!!! question "Need Help?"
-    If you encounter any issues or have questions:
-    
-    - 📧 Email: [zhaoqi.shi@wisc.edu](mailto:zhaoqi.shi@wisc.edu)
-    - 💬 GitHub Discussions: [Community Forum](https://github.com/username/PRISM/discussions)
-    - 🐛 Bug Reports: [GitHub Issues](https://github.com/username/PRISM/issues)

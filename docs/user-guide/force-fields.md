@@ -2,6 +2,15 @@
 
 Force fields are the mathematical models that describe atomic interactions in molecular dynamics. **Choosing the right force field combination is critical for simulation accuracy**. PRISM supports multiple force field families for both proteins and ligands.
 
+!!! example "Quick Start"
+    ```bash
+    # Default (GAFF + amber99sb)
+    prism protein.pdb ligand.mol2 -o output
+
+    # High accuracy (OpenFF + AMBER14SB)
+    prism protein.pdb ligand.sdf -o output --ligand-forcefield openff --forcefield amber14sb
+    ```
+
 ## Quick Selection Guide
 
 ### Recommended Combinations
@@ -378,6 +387,37 @@ prism protein.pdb ligand.mol2 -o output --ligand-forcefield hybrid
 
 ---
 
+## Gaussian RESP Charges
+
+For the highest-quality charge assignments, PRISM can use Gaussian to compute RESP charges instead of the default AM1-BCC method:
+
+```bash
+# HF/6-31G* RESP charges (standard for AMBER)
+prism protein.pdb ligand.mol2 -o output --gaussian hf
+
+# DFT-level RESP charges (B3LYP)
+prism protein.pdb ligand.mol2 -o output --gaussian dft
+
+# With geometry optimization before charge calculation
+prism protein.pdb ligand.mol2 -o output --gaussian hf --isopt opt
+
+# From a pre-computed RESP file
+prism protein.pdb ligand.mol2 -o output --respfile charges.resp
+```
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--gaussian` / `-g` | Gaussian method (`hf` or `dft`) | off |
+| `--isopt` | Optimization level before RESP | none |
+| `--respfile` / `-rf` | Path to pre-computed RESP file | none |
+| `--nproc` | Gaussian CPU cores | `16` |
+| `--mem` | Gaussian memory | `4GB` |
+
+!!! info "Gaussian Required"
+    This feature requires a working Gaussian installation accessible from the command line. The resulting RESP charges replace the default AM1-BCC charges for GAFF/GAFF2.
+
+---
+
 ## Water Models
 
 ### TIP3P (Default)
@@ -604,8 +644,13 @@ prism protein.pdb ligand.sdf -o output --ligand-forcefield openff
 
 ---
 
-## Next Steps
+<div class="whats-next" markdown>
 
-- [Building Systems](building-systems.md) - Use your chosen force field
-- [Running Simulations](running-simulations.md) - Execute MD
-- [Analysis Tools](analysis-tools.md) - Validate results
+## What's Next
+
+- [Build a system with your chosen force field](building-systems.md)
+- [Run simulations with GROMACS](running-simulations.md)
+- [Analyze trajectories and validate results](analysis-tools.md)
+- [Use Gaussian RESP charges for higher accuracy](#gaussian-resp-charges)
+
+</div>

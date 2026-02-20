@@ -2,6 +2,15 @@
 
 PRISM uses a flexible YAML-based configuration system that allows you to customize every aspect of your molecular dynamics simulations. This guide covers all configuration options and best practices.
 
+!!! example "Quick Start"
+    ```bash
+    # Export default config as a starting template
+    prism --export-config my_config.yaml
+
+    # Build with custom config
+    prism protein.pdb ligand.mol2 -o output --config my_config.yaml
+    ```
+
 ## Configuration Overview
 
 PRISM can be configured through:
@@ -400,8 +409,12 @@ config_mgr = ConfigurationManager("my_config.yaml")
 config_mgr.validate()  # Raises errors if invalid
 ```
 
-## Next Steps
+<div class="whats-next" markdown>
 
-- Learn about [Input Files](input-files.md) preparation
-- Understand [Force Fields](force-fields.md) selection
-- Start [Building Systems](building-systems.md)
+## What's Next
+
+- [Prepare your input files](input-files.md)
+- [Choose the right force field](force-fields.md)
+- [Build your system](building-systems.md)
+
+</div>

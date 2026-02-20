@@ -1,5 +1,11 @@
 # Batch Processing Tutorial
 
+!!! example "Quick Start"
+    ```bash
+    # Build multiple ligands against one protein
+    prism -pf protein.pdb -lf lig1.mol2 -lf lig2.mol2 -lf lig3.mol2 -o screen
+    ```
+
 ## Overview
 
 Process multiple protein-ligand complexes efficiently using PRISM's Python API and automation features. This tutorial demonstrates high-throughput virtual screening workflows.
@@ -647,8 +653,12 @@ OUTPUT_DIR = Path("/scratch/fast_storage/results")
 
 ---
 
-## Related Resources
+<div class="whats-next" markdown>
 
-- [Basic Tutorial](basic-tutorial.md)
-- [PMF Tutorial](pmf-tutorial.md)
-- [API Documentation](../api/index.md)
+## What's Next
+
+- [Review the Basic Tutorial for single-system workflows](basic-tutorial.md)
+- [Calculate binding energies with the PMF Tutorial](pmf-tutorial.md)
+- [Read the API Reference for scripting details](../api/index.md)
+
+</div>

@@ -150,7 +150,7 @@ If you encounter issues while following tutorials:
 
 1. **Check the [Troubleshooting Guide](../user-guide/troubleshooting.md)**
 2. **Review error messages carefully** - they often indicate the problem
-3. **Verify dependencies** with `prism.check_dependencies()`
+3. **Verify dependencies** are installed (see [Installation](../getting-started/installation.md))
 4. **Ask for help**:
    - GitHub Issues: [AIB001/PRISM](https://github.com/AIB001/PRISM/issues)
    - Email: zhaoqi.shi@wisc.edu
@@ -176,28 +176,18 @@ Have a useful workflow or case study to share? We welcome tutorial contributions
 
 ## Additional Resources
 
-### Video Tutorials
-
-- [PRISM YouTube Channel](https://youtube.com/PRISMmd) (coming soon)
-- [Webinar Series](https://prism-tutorial.com/webinars) (coming soon)
-
-### Publications
-
-See [Publications](../about/publications.md) for research using PRISM and theoretical background.
-
-### Example Systems
-
-Browse the [Examples](../examples/index.md) section for ready-to-use configurations and workflows.
-
-## Quick Reference
-
-| Tutorial | Level | Time | Key Skills |
-|----------|-------|------|------------|
-| [Basic](basic-tutorial.md) | Beginner | 30-60 min | System building, MD simulation |
-| [Force Fields](force-field-tutorial.md) | Intermediate | 45-90 min | Force field selection, comparison |
-| [PMF](pmf-tutorial.md) | Advanced | 2-4 hours | Binding energy, umbrella sampling |
-| [Batch](batch-tutorial.md) | Intermediate | 60-90 min | Automation, high-throughput |
+- [User Guide](../user-guide/index.md) for detailed documentation
+- [Examples](../examples/index.md) for ready-to-use scripts
+- [API Reference](../api/index.md) for Python API details
 
 ---
 
-Ready to get started? Begin with the [Basic Tutorial](basic-tutorial.md) or jump to a topic that interests you!
+<div class="whats-next" markdown>
+
+## What's Next
+
+- [Start with the Basic Tutorial](basic-tutorial.md)
+- [Compare force fields in the Force Field Tutorial](force-field-tutorial.md)
+- [Browse ready-to-run Examples](../examples/index.md)
+
+</div>
