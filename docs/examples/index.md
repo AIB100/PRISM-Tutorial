@@ -93,7 +93,7 @@ print(f"Next step: cd {output_directory}/GMX_PROLIG_MD && bash localrun.sh")
 All examples use freely available test systems:
 
 ### T4 Lysozyme - Benzene
-- **Protein**: T4 Lysozyme (PDB: 2LZM)
+- **Protein**: T4 Lysozyme L99A/M102Q (PDB: [5JWT](https://www.rcsb.org/structure/5JWT))
 - **Ligand**: Benzene
 - **Use case**: Small molecule binding, hydrophobic interactions
 - **Simulation time**: ~2-4 hours on GPU

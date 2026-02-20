@@ -2,8 +2,8 @@
 
 !!! example "Quick Start"
     ```bash
-    prism protein.pdb ligand.mol2 -o t4_lysozyme_benzene
-    cd t4_lysozyme_benzene/GMX_PROLIG_MD && bash localrun.sh
+    prism protein.pdb ligand.mol2 -o t4l_benzene
+    cd t4l_benzene/GMX_PROLIG_MD && bash localrun.sh
     ```
 
 ## Overview
@@ -13,7 +13,7 @@ This tutorial will guide you through the complete workflow of building a protein
 **Estimated Time:** 30-60 minutes (+ simulation time)
 
 **What You'll Learn:**
-- Preparing protein and ligand input files
+
 - Building an MD-ready system with PRISM
 - Running equilibration and production simulations
 - Analyzing protein-ligand interactions
@@ -28,85 +28,42 @@ This tutorial will guide you through the complete workflow of building a protein
 
 ## Tutorial System
 
-We'll study **T4 Lysozyme L99A** with a **benzene** ligand - a well-characterized model system for protein-ligand binding.
+We'll study **T4 Lysozyme L99A/M102Q** with a **benzene** ligand (PDB: [5JWT](https://www.rcsb.org/structure/5JWT)) - a well-characterized model system for protein-ligand binding.
 
 **Why this system?**
-- Small protein (~160 residues, fast simulations)
-- Well-studied ligand binding pocket
-- Experimental data available for validation
-- Ideal for learning
 
-## Step 1: Obtain Input Files
+- Small protein (164 residues, fast simulations)
+- Well-studied hydrophobic binding pocket
+- Experimental binding data available for validation
+- Benzene is a minimal ligand (12 atoms), ideal for learning
 
-### Download Tutorial Data
+## Step 1: Download Input Files
 
-```bash
-# Create working directory
-mkdir prism_basic_tutorial
-cd prism_basic_tutorial
+Pre-processed input files are provided. The protein has been cleaned (solvent/ions removed) and the ligand prepared in MOL2 format.
 
-# Download pre-prepared files
-wget https://files.rcsb.org/download/3DMX.pdb -O protein_raw.pdb
-```
+<div class="grid" markdown>
 
-### Prepare Ligand File
+[:material-download: **protein.pdb** (147 KB)](../assets/examples/protein.pdb){ .md-button }
 
-For this tutorial, we'll use a simple benzene molecule. Create a file called `benzene.mol2`:
+[:material-download: **ligand.mol2** (1.4 KB)](../assets/examples/ligand.mol2){ .md-button }
+
+</div>
+
+Or download via command line:
 
 ```bash
-# You can create this with any molecular editor (Avogadro, PyMOL, etc.)
-# Or download our pre-made file:
-wget https://github.com/AIB001/PRISM-tutorial-data/raw/main/basic/benzene.mol2
+mkdir prism_basic_tutorial && cd prism_basic_tutorial
+
+wget https://raw.githubusercontent.com/AIB100/PRISM-Tutorial/main/docs/assets/examples/protein.pdb
+wget https://raw.githubusercontent.com/AIB100/PRISM-Tutorial/main/docs/assets/examples/ligand.mol2
 ```
 
-Alternatively, create it manually:
-
-```mol2
-@<TRIPOS>MOLECULE
-benzene
- 12 12 0 0 0
-SMALL
-GASTEIGER
-
-@<TRIPOS>ATOM
-      1 C1          1.2124    0.7010    0.0000 C.ar    1  BEN1       -0.1150
-      2 C2          1.2124   -0.7010    0.0000 C.ar    1  BEN1       -0.1150
-      3 C3          0.0000   -1.4020    0.0000 C.ar    1  BEN1       -0.1150
-      4 C4         -1.2124   -0.7010    0.0000 C.ar    1  BEN1       -0.1150
-      5 C5         -1.2124    0.7010    0.0000 C.ar    1  BEN1       -0.1150
-      6 C6          0.0000    1.4020    0.0000 C.ar    1  BEN1       -0.1150
-      7 H1          2.1569    1.2450    0.0000 H       1  BEN1        0.1150
-      8 H2          2.1569   -1.2450    0.0000 H       1  BEN1        0.1150
-      9 H3          0.0000   -2.4900    0.0000 H       1  BEN1        0.1150
-     10 H4         -2.1569   -1.2450    0.0000 H       1  BEN1        0.1150
-     11 H5         -2.1569    1.2450    0.0000 H       1  BEN1        0.1150
-     12 H6          0.0000    2.4900    0.0000 H       1  BEN1        0.1150
-@<TRIPOS>BOND
-     1     1     2   ar
-     2     2     3   ar
-     3     3     4   ar
-     4     4     5   ar
-     5     5     6   ar
-     6     6     1   ar
-     7     1     7    1
-     8     2     8    1
-     9     3     9    1
-    10     4    10    1
-    11     5    11    1
-    12     6    12    1
-@<TRIPOS>SUBSTRUCTURE
-     1 BEN1        1 TEMP              0 ****  ****    0 ROOT
-```
-
-### Verify Input Files
+Verify the files:
 
 ```bash
-# Check files exist
-ls -lh protein_raw.pdb benzene.mol2
-
-# Quick inspection
-head -20 protein_raw.pdb
-head -20 benzene.mol2
+ls -lh protein.pdb ligand.mol2
+# protein.pdb  147K  (T4 Lysozyme L99A/M102Q, 164 residues)
+# ligand.mol2  1.4K  (Benzene, 12 atoms)
 ```
 
 ## Step 2: Build the System (CLI Method)
@@ -117,7 +74,7 @@ Use PRISM's command-line interface to build the system:
 
 ```bash
 # Build with default settings (GAFF force field, amber99sb-ildn, TIP3P water)
-prism protein_raw.pdb benzene.mol2 -o t4_lysozyme_benzene
+prism protein.pdb ligand.mol2 -o t4l_benzene
 ```
 
 **Expected Output:**
@@ -128,9 +85,9 @@ prism protein_raw.pdb benzene.mol2 -o t4_lysozyme_benzene
 ✓ AmberTools found
 
 📋 System Configuration:
-  Protein: protein_raw.pdb (164 residues)
-  Ligand: benzene.mol2 (12 atoms)
-  Output: t4_lysozyme_benzene
+  Protein: protein.pdb (164 residues)
+  Ligand: ligand.mol2 (12 atoms)
+  Output: t4l_benzene
   Ligand FF: GAFF
   Protein FF: amber99sb-ildn
   Water: tip3p
@@ -144,14 +101,14 @@ prism protein_raw.pdb benzene.mol2 -o t4_lysozyme_benzene
   [6/6] Generating MDP files...
 
 ✅ System built successfully!
-📁 Output: ./t4_lysozyme_benzene/GMX_PROLIG_MD/
+📁 Output: ./t4l_benzene/GMX_PROLIG_MD/
 ```
 
 ### Inspect Output Structure
 
 ```bash
 # Navigate to output
-cd t4_lysozyme_benzene/GMX_PROLIG_MD
+cd t4l_benzene/GMX_PROLIG_MD
 
 # Check generated files
 ls -lh
@@ -247,7 +204,7 @@ gmx check -f prod/md.xtc
 
 ```bash
 # Return to project root
-cd ../..  # Back to t4_lysozyme_benzene/
+cd ../..  # Back to t4l_benzene/
 
 # Run comprehensive analysis
 python3 << EOF
@@ -257,7 +214,7 @@ import prism as pm
 analysis = pm.analyze_trajectory(
     topology="GMX_PROLIG_MD/system.gro",
     trajectory="GMX_PROLIG_MD/prod/md.xtc",
-    ligand_resname="BEN",
+    ligand_resname="LIG",
     output_dir="analysis_results"
 )
 
@@ -341,9 +298,9 @@ show cartoon, polymer
 color slate, polymer
 
 # Show ligand as sticks
-show sticks, resn BEN
-color green, resn BEN
-util.cbag resn BEN
+show sticks, resn LIG
+color green, resn LIG
+util.cbag resn LIG
 
 # Play trajectory
 mplay
@@ -375,7 +332,7 @@ mol selection protein
 mol addrep top
 
 mol representation Licorice
-mol selection resname BEN
+mol selection resname LIG
 mol addrep top
 ```
 
@@ -436,7 +393,7 @@ echo "Total-Energy" | gmx energy -f prod/md.edr -o total_energy.xvg
 - Simulation may not have run
 - Check: `ls -lh prod/md.xtc` should show file size
 
-**"Residue BEN not found"**
+**"Residue LIG not found"**
 - Ligand residue name mismatch
 - Check: `grep "resname" system.gro` to find actual residue name
 
