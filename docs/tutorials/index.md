@@ -153,7 +153,7 @@ If you encounter issues while following tutorials:
 3. **Verify dependencies** are installed (see [Installation](../getting-started/installation.md))
 4. **Ask for help**:
    - GitHub Issues: [AIB001/PRISM](https://github.com/AIB001/PRISM/issues)
-   - Email: zhaoqi.shi@wisc.edu
+   - Email: zshi268@wisc.edu
 
 ## Contributing Tutorials
 

@@ -123,7 +123,7 @@ While not legally required by the MIT License, we kindly request that you cite P
   author = {Shi, Zhaoqi},
   title = {PRISM: Protein Receptor Interaction Simulation Modeler},
   year = {2024},
-  version = {1.2.0},
+  version = {2.0.0},
   institution = {Institute of Quantitative Biology, Zhejiang University},
   url = {https://github.com/AIB001/PRISM}
 }

@@ -13,7 +13,7 @@ If you use PRISM in your research, please cite:
   author = {Shi, Zhaoqi},
   title = {PRISM: Protein Receptor Interaction Simulation Modeler},
   year = {2024},
-  version = {1.2.0},
+  version = {2.0.0},
   institution = {Institute of Quantitative Biology, Zhejiang University},
   url = {https://github.com/AIB001/PRISM}
 }
@@ -30,22 +30,6 @@ Publications describing PRISM methodology and applications (in preparation):
 2. **Force Field Comparison for Protein-Ligand Binding: Insights from PRISM**  
    Shi, Z. et al.  
    *Manuscript in preparation*, 2024
-
----
-
-## Research Using PRISM
-
-### 2024
-
-1. **Application Study 1**  
-   Authors et al.  
-   *Journal Name*, 2024  
-   DOI: [link]
-
-2. **Application Study 2**  
-   Authors et al.  
-   *Journal Name*, 2024  
-   DOI: [link]
 
 ---
 
@@ -86,54 +70,13 @@ Publications describing PRISM methodology and applications (in preparation):
 
 ---
 
-## Presentations and Talks
-
-### 2024
-
-- **PRISM: Automated MD System Building**  
-  ACS National Meeting, Spring 2024  
-  Presenter: Zhaoqi Shi
-
-- **Force Field Comparison Using PRISM**  
-  Computational Chemistry Symposium, 2024
-
-### 2023
-
-- **PRISM Development and Applications**  
-  Zhejiang University IQB Seminar Series
-
----
-
-## Theses and Dissertations
-
-**PhD Dissertation**
-- Shi, Z. (Expected 2025). Development and Application of PRISM for Protein-Ligand Simulations. Zhejiang University.
-
----
-
-## Review Articles
-
-### Computational Drug Discovery
-- Relevant reviews that cite or relate to PRISM methodology
-
-### Molecular Dynamics Methods
-- Recent advances in MD simulation methods
-
-### Force Field Development
-- Current state of force field research
-
----
-
 ## Submit Your Publication
 
-Have you used PRISM in your research? Let us know!
+If you use PRISM in your research, we'd be happy to list your publication here.
 
-Submit your publication information:
 - Email: zshi268@wisc.edu
 - Subject: "PRISM Publication"
-- Include: Title, Authors, Journal, DOI, Brief description
-
-We'll add it to this page and may feature it on our website.
+- Include: Title, Authors, Journal, DOI
 
 ---
 
@@ -143,7 +86,7 @@ We'll add it to this page and may feature it on our website.
 
 Example text for methods section:
 
-> "Protein-ligand systems were built using PRISM (Protein Receptor Interaction Simulation Modeler) version 1.2.0 [citation]. Ligand force field parameters were generated using [GAFF/OpenFF/etc], and the protein was modeled with the AMBER99SB force field. The system was solvated in a TIP3P water box with 0.15 M NaCl. Molecular dynamics simulations were performed using GROMACS 2024.3."
+> "Protein-ligand systems were built using PRISM (Protein Receptor Interaction Simulation Modeler) version 2.0.0 [citation]. Ligand force field parameters were generated using [GAFF/OpenFF/etc], and the protein was modeled with the AMBER99SB force field. The system was solvated in a TIP3P water box with 0.15 M NaCl. Molecular dynamics simulations were performed using GROMACS 2024.3."
 
 ### In Acknowledgments
 
@@ -167,6 +110,4 @@ Example text for methods section:
 
 ---
 
-**Last Updated**: October 2024
-
-**Add Your Publication**: zshi268@wisc.edu
+**Last Updated**: February 2025

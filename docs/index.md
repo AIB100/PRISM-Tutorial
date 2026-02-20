@@ -155,7 +155,7 @@ For questions or suggestions, open an issue on [GitHub](https://github.com/AIB00
   author = {Shi, Zhaoqi},
   title = {PRISM: Protein Receptor Interaction Simulation Modeler},
   year = {2024},
-  version = {1.2.0},
+  version = {2.0.0},
   institution = {Institute of Quantitative Biology, Zhejiang University},
   url = {https://github.com/AIB001/PRISM}
 }

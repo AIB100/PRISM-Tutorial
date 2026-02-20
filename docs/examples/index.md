@@ -128,30 +128,7 @@ All examples use freely available test systems:
 
 ## Running Examples
 
-### Option 1: Download and Run
-
-```bash
-# Clone examples repository
-git clone https://github.com/AIB001/PRISM-examples.git
-cd PRISM-examples
-
-# Run specific example
-cd simple-protein-ligand
-python run_example.py
-```
-
-### Option 2: Copy-Paste Code
-
-Each example page includes complete, copy-paste ready code that you can run directly.
-
-### Option 3: Jupyter Notebooks
-
-Interactive Jupyter notebooks are available for all examples:
-
-```bash
-cd PRISM-examples
-jupyter notebook
-```
+Each example page provides downloadable input files and copy-paste ready commands. Download the files from the example page, then follow the instructions directly.
 
 ---
 
