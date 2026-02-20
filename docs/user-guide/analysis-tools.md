@@ -665,18 +665,101 @@ with pd.ExcelWriter("analysis_results.xlsx") as writer:
 PRISM can set up MM/PBSA binding energy calculations using gmx_MMPBSA:
 
 ```bash
-# Run MM/PBSA on the last 10 ns of trajectory
+# Single-frame MM/PBSA on equilibrated structure
+prism protein.pdb ligand.mol2 -o output --mmpbsa
+
+# Trajectory-based MM/PBSA on the last 10 ns
 prism protein.pdb ligand.mol2 -o output --mmpbsa --mmpbsa-traj 10
 
-# With GROMACS-to-AMBER topology conversion
+# With GROMACS-to-AMBER topology conversion (uses AMBER MMPBSA.py backend)
 prism protein.pdb ligand.mol2 -o output --mmpbsa --gmx2amber
 ```
 
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--mmpbsa` / `-pbsa` | Enable MM/PBSA calculation | off |
-| `--mmpbsa-traj` | Trajectory segment to analyze (ns) | full trajectory |
-| `--gmx2amber` | Convert GROMACS topology to AMBER format | off |
+| `--mmpbsa-traj` | Production MD length to analyze (ns); omit for single-frame mode | single frame |
+| `--gmx2amber` | Use AMBER MMPBSA.py backend instead of gmx_MMPBSA | off |
+
+### Theory
+
+The **Molecular Mechanics / Poisson-Boltzmann Surface Area (MM/PBSA)** method estimates the binding free energy of a protein-ligand complex by combining molecular mechanics energetics with implicit solvation. The binding free energy is decomposed as:
+
+$$
+\Delta G_{\text{bind}} = \Delta E_{\text{MM}} + \Delta G_{\text{solv}} - T \Delta S
+$$
+
+where $\Delta E_{\text{MM}}$ is the change in gas-phase molecular mechanics energy, $\Delta G_{\text{solv}}$ is the change in solvation free energy, and $T\Delta S$ is the entropic contribution (often omitted for relative comparisons).
+
+#### Molecular Mechanics Energy
+
+The gas-phase MM energy is the sum of bonded and non-bonded interactions:
+
+$$
+E_{\text{MM}} = E_{\text{bond}} + E_{\text{angle}} + E_{\text{dihedral}} + E_{\text{vdW}} + E_{\text{elec}}
+$$
+
+The binding energy contribution is computed as:
+
+$$
+\Delta E_{\text{MM}} = E_{\text{MM}}^{\text{complex}} - E_{\text{MM}}^{\text{receptor}} - E_{\text{MM}}^{\text{ligand}}
+$$
+
+#### Solvation Free Energy
+
+The solvation free energy consists of a polar (electrostatic) and a nonpolar (hydrophobic) term:
+
+$$
+\Delta G_{\text{solv}} = \Delta G_{\text{PB}} + \Delta G_{\text{SA}}
+$$
+
+**Polar solvation** ($\Delta G_{\text{PB}}$) is obtained by solving the linearized Poisson-Boltzmann equation:
+
+$$
+\nabla \cdot \left[ \varepsilon(\mathbf{r}) \nabla \phi(\mathbf{r}) \right] - \kappa^2(\mathbf{r}) \phi(\mathbf{r}) = -4\pi \rho_f(\mathbf{r})
+$$
+
+where $\varepsilon(\mathbf{r})$ is the position-dependent dielectric constant (low inside the solute, ~80 in water), $\phi(\mathbf{r})$ is the electrostatic potential, $\kappa$ is the Debye-Hückel screening parameter (related to ionic strength, set to 0.15 M in PRISM), and $\rho_f(\mathbf{r})$ is the fixed charge density from partial atomic charges.
+
+**Nonpolar solvation** ($\Delta G_{\text{SA}}$) is estimated from the solvent-accessible surface area (SASA):
+
+$$
+\Delta G_{\text{SA}} = \gamma \cdot \text{SASA} + b
+$$
+
+where $\gamma$ is the surface tension coefficient and $b$ is an offset constant.
+
+#### Calculation Modes
+
+PRISM supports two calculation modes:
+
+**Single-frame mode** (`--mmpbsa`): Computes $\Delta G_{\text{bind}}$ on the final equilibrated structure (NPT output). This is fast but does not capture conformational averaging.
+
+**Trajectory mode** (`--mmpbsa --mmpbsa-traj NS`): Runs production MD for the specified length, then computes $\Delta G_{\text{bind}}$ for each sampled frame. The final result is the ensemble average $\langle \Delta G_{\text{bind}} \rangle$ with standard deviation, providing more reliable estimates.
+
+#### Backends
+
+PRISM supports two MM/PBSA backends:
+
+| Backend | Flag | Topology handling | Best for |
+| --- | --- | --- | --- |
+| **gmx_MMPBSA** (default) | — | Direct GROMACS topology | GAFF, GAFF2, all force fields |
+| **AMBER MMPBSA.py** | `--gmx2amber` | parmed conversion to AMBER prmtop | Cross-validation with AMBER |
+
+When using the AMBER backend, PRISM automatically converts the GROMACS topology to AMBER format (solvated, complex, receptor, and ligand prmtop files) via parmed, and fixes any invalid dihedral periodicity values that may arise during conversion.
+
+#### Workflow
+
+```mermaid
+graph LR
+    A[Build & Equilibrate System] --> B{Mode?}
+    B -->|Single-frame| C[Use NPT Final Frame]
+    B -->|Trajectory| D[Run Production MD]
+    C --> E[Generate Index Groups]
+    D --> E
+    E --> F[Run MM/PBSA Calculation]
+    F --> G["ΔG_bind = ΔE_MM + ΔG_PB + ΔG_SA"]
+```
 
 <div class="whats-next" markdown>
 
