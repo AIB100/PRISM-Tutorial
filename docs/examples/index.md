@@ -16,6 +16,14 @@ This section provides practical, real-world examples demonstrating various PRISM
 
     [Go to example](simple.md)
 
+-   **PMF Calculation**
+
+    ---
+
+    Estimate binding free energy via steered MD and umbrella sampling
+
+    [Go to example](pmf-example.md)
+
 -   **Multiple Force Fields**
 
     ---
@@ -98,6 +106,12 @@ All examples use freely available test systems:
 - **Use case**: Small molecule binding, hydrophobic interactions
 - **Simulation time**: ~2-4 hours on GPU
 
+### CDK2 - CVT-313
+- **Protein**: Cyclin-dependent kinase 2 (PDB: [6INL](https://www.rcsb.org/structure/6INL), Swiss-Model homology model)
+- **Ligand**: CVT-313 (purine-based inhibitor)
+- **Use case**: PMF binding free energy, Gaussian RESP charges
+- **Simulation time**: days (umbrella sampling, parallelizable)
+
 ### BACE1 - Inhibitor
 - **Protein**: Beta-secretase 1 (PDB: 3L5D)
 - **Ligand**: Small molecule inhibitor
@@ -155,7 +169,7 @@ jupyter notebook
 - Hydrogen bond analysis
 
 ### Advanced Calculations
-- PMF/Umbrella sampling
+- [PMF Calculation](pmf-example.md) - Binding free energy via umbrella sampling and WHAM
 - MM/PBSA binding energies
 - Free energy perturbation
 
