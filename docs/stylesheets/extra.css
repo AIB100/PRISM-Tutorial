@@ -12,7 +12,17 @@
    Header-Tabs Separator Line
    ============================================ */
 .md-tabs {
-  border-top: 4px solid rgba(255, 255, 255, 0.3);
+  position: relative;
+}
+
+.md-tabs::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* ============================================
