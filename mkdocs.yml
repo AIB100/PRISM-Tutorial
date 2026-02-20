@@ -163,6 +163,7 @@ nav:
   - Examples:
     - Overview: examples/index.md
     - Simple Protein-Ligand: examples/simple.md
+    - PMF Calculation: examples/pmf-example.md
     - Multiple Force Fields: examples/multi-forcefield.md
     - Custom Configurations: examples/custom-config.md
   - API Reference:
