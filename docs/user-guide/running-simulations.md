@@ -727,7 +727,72 @@ prism protein.pdb ligand.mol2 -o output --rest2
 | `--replica-number` | Number of replicas | `16` |
 | `--rest2-cutoff` | Hot region cutoff around ligand (nm) | `0.5` |
 
-REST2 scales the potential energy of the "hot" region (ligand and nearby residues) to achieve enhanced sampling without heating the entire system.
+### Theory
+
+In standard replica exchange MD (REMD), the entire system is simulated at multiple temperatures. This requires many replicas and enormous computational cost because the acceptance probability decreases exponentially with system size. **REST2** (Replica Exchange with Solute Tempering 2) overcomes this by scaling only the **solute** (ligand + nearby residues) potential energy, while keeping the solvent at a constant thermostat temperature $T_0$.
+
+#### Temperature Ladder
+
+PRISM constructs a geometric temperature ladder of $n$ replicas:
+
+$$
+T_{\text{eff}}^{(i)} = T_{\text{ref}} \left( \frac{T_{\text{max}}}{T_{\text{ref}}} \right)^{i/(n-1)}, \quad i = 0, 1, \ldots, n-1
+$$
+
+The scaling factor for replica $i$ is:
+
+$$
+\lambda_i = \frac{T_{\text{ref}}}{T_{\text{eff}}^{(i)}}
+$$
+
+where $\lambda_0 = 1$ (unscaled, physical replica) and $\lambda_{n-1} = T_{\text{ref}} / T_{\text{max}}$ (most scaled).
+
+#### Potential Energy Scaling
+
+The total potential energy of the system is decomposed into solute-solute ($V_{ss}$), solute-solvent ($V_{sw}$), and solvent-solvent ($V_{ww}$) terms. For replica $i$, the scaled Hamiltonian is:
+
+$$
+H_i = K + \lambda_i \, V_{ss} + \sqrt{\lambda_i} \, V_{sw} + V_{ww}
+$$
+
+In practice, PRISM implements this by modifying the GROMACS topology for each replica:
+
+| Interaction type | Condition | Scaling |
+| --- | --- | --- |
+| LJ $\varepsilon$ (solute atom types) | Solute-solute | $\varepsilon' = \lambda \, \varepsilon$ |
+| Partial charges (solute atoms) | Solute-solvent (mixed) | $q' = \sqrt{\lambda} \, q$ |
+| Bonded force constants | All solute atoms | $k' = \lambda \, k$ |
+| Bonded force constants | Mixed solute-solvent | $k' = \sqrt{\lambda} \, k$ |
+| Solvent interactions | All solvent atoms | Unchanged |
+
+This ensures that solute-solute interactions scale as $\lambda$, mixed interactions scale as $\sqrt{\lambda}$ (because two $\sqrt{\lambda}$ charges produce a $\lambda$-scaled Coulomb interaction for solute-solute, or a $\sqrt{\lambda}$-scaled interaction when one partner is solvent), and solvent-solvent interactions remain unscaled.
+
+#### Hot Region Selection
+
+PRISM identifies the "hot" region (solute) as the ligand plus all protein residues with any heavy atom within the `--rest2-cutoff` distance (default 0.5 nm) of any ligand atom. These atoms are marked in the topology, and their force field parameters are scaled per-replica.
+
+#### Replica Exchange Protocol
+
+During the production run, adjacent replicas periodically attempt Hamiltonian exchanges. The acceptance probability for swapping replicas $i$ and $j$ follows the Metropolis criterion:
+
+$$
+P_{\text{acc}} = \min\!\left(1, \, \exp\!\left[-(\beta_i - \beta_j)(V_j(\mathbf{r}_i) - V_i(\mathbf{r}_i)) - (\beta_j - \beta_i)(V_i(\mathbf{r}_j) - V_j(\mathbf{r}_j))\right]\right)
+$$
+
+Because only the solute region is scaled, the acceptance rate remains high even for large solvated systems, making REST2 far more efficient than standard temperature REMD.
+
+#### Workflow
+
+```mermaid
+graph LR
+    A[Standard MD System] --> B[Identify Hot Region]
+    B --> C[Mark Solute Atoms in Topology]
+    C --> D[Generate Scaled Topologies per Replica]
+    D --> E[Run Hamiltonian Replica Exchange]
+    E --> F[Analyze Replica 0 for Physical Ensemble]
+```
+
+The production run uses `gmx mdrun -multidir -hrex -replex 1000`, performing exchange attempts every 1000 steps across all replicas simultaneously.
 
 <div class="whats-next" markdown>
 

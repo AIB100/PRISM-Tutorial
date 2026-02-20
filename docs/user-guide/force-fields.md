@@ -416,6 +416,63 @@ prism protein.pdb ligand.mol2 -o output --respfile charges.resp
 !!! info "Gaussian Required"
     This feature requires a working Gaussian installation accessible from the command line. The resulting RESP charges replace the default AM1-BCC charges for GAFF/GAFF2.
 
+### Theory and Workflow
+
+The default AM1-BCC method uses the semi-empirical AM1 Hamiltonian to compute Mulliken charges, then applies bond charge corrections (BCC) to approximate HF/6-31G* electrostatic potentials. While fast, this approach can be inaccurate for molecules with unusual electronic structure. RESP charges from ab initio calculations provide a more rigorous alternative.
+
+#### Step 1: Geometry Optimization (Optional)
+
+When `--isopt opt` is specified, PRISM first optimizes the ligand geometry at the chosen level of theory:
+
+- **HF mode:** HF/6-31G* (Hartree-Fock, standard for AMBER force fields)
+- **DFT mode:** B3LYP/6-31G* (hybrid density functional, better for conjugated systems)
+
+This ensures the charge calculation is performed on a quantum-mechanically consistent geometry rather than on the crystallographic or docked pose.
+
+#### Step 2: Electrostatic Potential (ESP) Calculation
+
+Gaussian computes the molecular electrostatic potential (ESP) on a grid of points surrounding the molecule using the Merz-Kollman scheme:
+
+$$
+V_{\text{ESP}}(\mathbf{r}) = \sum_A \frac{Z_A}{|\mathbf{r} - \mathbf{R}_A|} - \int \frac{\rho(\mathbf{r}')}{|\mathbf{r} - \mathbf{r}'|} d\mathbf{r}'
+$$
+
+where $Z_A$ and $\mathbf{R}_A$ are nuclear charges and positions, and $\rho(\mathbf{r}')$ is the electron density from the HF or DFT wavefunction. The ESP is evaluated at multiple layers of points on van der Waals surfaces (controlled by `IOp(6/33=2,6/42=6)` in the Gaussian route section).
+
+#### Step 3: RESP Charge Fitting
+
+The **Restrained Electrostatic Potential (RESP)** method fits atom-centered point charges $\{q_i\}$ to reproduce the quantum-mechanical ESP. The objective function minimizes:
+
+$$
+\chi^2_{\text{RESP}} = \sum_{k=1}^{K} \left[ V_{\text{ESP}}(\mathbf{r}_k) - \sum_{i=1}^{M} \frac{q_i}{|\mathbf{r}_k - \mathbf{R}_i|} \right]^2 + a \sum_{i=1}^{M} \left( q_i^2 - b^2 \right)
+$$
+
+subject to the constraint:
+
+$$
+\sum_{i=1}^{M} q_i = Q_{\text{total}}
+$$
+
+where $K$ is the number of ESP grid points, $M$ is the number of atoms, $Q_{\text{total}}$ is the net molecular charge, and $a$ is the restraint weight (default $a = 0.0005$ for stage 1, $a = 0.001$ for stage 2). The hyperbolic restraint penalty $a(q_i^2 - b^2)$ drives chemically buried atoms toward zero charge, preventing unphysical charge buildup on atoms poorly constrained by the ESP grid.
+
+RESP fitting is performed by `antechamber` (AmberTools) in a standard two-stage procedure, and the resulting charges are automatically substituted into the GROMACS `.itp` topology file, replacing the default AM1-BCC values.
+
+#### Complete Workflow
+
+```mermaid
+graph LR
+    A[Ligand MOL2] --> B[Geometry Optimization]
+    B --> C[ESP Calculation]
+    C --> D[RESP Fitting]
+    D --> E[Replace Charges in ITP]
+
+    B -. "HF/6-31G* or B3LYP/6-31G*" .-> B
+    C -. "Merz-Kollman ESP grid" .-> C
+    D -. "antechamber -c resp" .-> D
+```
+
+If Gaussian (`g16`) is available on the system, PRISM executes the entire workflow automatically. Otherwise, it generates a `charge.sh` script that can be run on a machine with Gaussian installed, and the resulting `ligand_resp.mol2` file can be provided back via `--respfile`.
+
 ---
 
 ## Water Models
