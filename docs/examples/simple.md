@@ -28,9 +28,9 @@ Pre-processed input files are provided. The protein structure has been cleaned (
 
 <div class="grid" markdown>
 
-[:material-download: **protein.pdb** (147 KB)](../assets/examples/protein.pdb){ .md-button }
+[:material-download: **protein.pdb** (147 KB)](../assets/examples/md/protein.pdb){ .md-button }
 
-[:material-download: **ligand.mol2** (1.4 KB)](../assets/examples/ligand.mol2){ .md-button }
+[:material-download: **ligand.mol2** (1.4 KB)](../assets/examples/md/ligand.mol2){ .md-button }
 
 </div>
 
@@ -40,8 +40,8 @@ Or download via command line:
 mkdir simple_example && cd simple_example
 
 # Download from the PRISM Tutorial repository
-wget https://raw.githubusercontent.com/AIB100/PRISM-Tutorial/main/docs/assets/examples/protein.pdb
-wget https://raw.githubusercontent.com/AIB100/PRISM-Tutorial/main/docs/assets/examples/ligand.mol2
+wget https://raw.githubusercontent.com/AIB100/PRISM-Tutorial/main/docs/assets/examples/md/protein.pdb
+wget https://raw.githubusercontent.com/AIB100/PRISM-Tutorial/main/docs/assets/examples/md/ligand.mol2
 ```
 
 Your directory should contain:

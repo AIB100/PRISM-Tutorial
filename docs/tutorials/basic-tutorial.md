@@ -43,9 +43,9 @@ Pre-processed input files are provided. The protein has been cleaned (solvent/io
 
 <div class="grid" markdown>
 
-[:material-download: **protein.pdb** (147 KB)](../assets/examples/protein.pdb){ .md-button }
+[:material-download: **protein.pdb** (147 KB)](../assets/examples/md/protein.pdb){ .md-button }
 
-[:material-download: **ligand.mol2** (1.4 KB)](../assets/examples/ligand.mol2){ .md-button }
+[:material-download: **ligand.mol2** (1.4 KB)](../assets/examples/md/ligand.mol2){ .md-button }
 
 </div>
 
@@ -54,8 +54,8 @@ Or download via command line:
 ```bash
 mkdir prism_basic_tutorial && cd prism_basic_tutorial
 
-wget https://raw.githubusercontent.com/AIB100/PRISM-Tutorial/main/docs/assets/examples/protein.pdb
-wget https://raw.githubusercontent.com/AIB100/PRISM-Tutorial/main/docs/assets/examples/ligand.mol2
+wget https://raw.githubusercontent.com/AIB100/PRISM-Tutorial/main/docs/assets/examples/md/protein.pdb
+wget https://raw.githubusercontent.com/AIB100/PRISM-Tutorial/main/docs/assets/examples/md/ligand.mol2
 ```
 
 Verify the files:
