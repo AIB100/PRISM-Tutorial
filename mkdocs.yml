@@ -159,6 +159,7 @@ nav:
     - Force Field Selection: tutorials/force-field-tutorial.md
     - PMF Workflow: tutorials/pmf-tutorial.md
     - Batch Processing: tutorials/batch-tutorial.md
+    - Cluster Submission: tutorials/cluster-submission.md
   - Examples:
     - Overview: examples/index.md
     - Simple Protein-Ligand: examples/simple.md
