@@ -52,6 +52,22 @@ Complete walkthrough of calculating protein-ligand binding free energies using u
 
 ---
 
+### [FEP Workflow](fep-tutorial.md)
+**Level:** Advanced
+**Time:** 2-4 hours (+ computation time)
+**Topics:** Relative binding free energy, FEP, lambda windows
+
+Complete walkthrough of calculating relative binding free energies between similar ligands using alchemical transformations.
+
+**What you'll learn:**
+- Setting up FEP calculations with atom mapping
+- Running lambda window simulations
+- Analyzing results with BAR/MBAR/TI estimators
+- Validating convergence and quality
+- Comparing force fields for FEP
+
+---
+
 ### [Batch Processing Tutorial](batch-tutorial.md)
 **Level:** Intermediate
 **Time:** 60-90 minutes

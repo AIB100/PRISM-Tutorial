@@ -70,6 +70,12 @@ Each page follows the same structure: a **Quick Start** box with the essential c
 
     Binding free energy via steered MD, umbrella sampling, and WHAM
 
+-   :material-swap-horizontal:{ .lg .middle } **[FEP Calculations](fep-calculations.md)**
+
+    ---
+
+    Relative binding free energy via alchemical transformation and lambda windows
+
 -   :material-wrench:{ .lg .middle } **[Troubleshooting](troubleshooting.md)**
 
     ---

@@ -150,6 +150,7 @@ nav:
     - Running Simulations: user-guide/running-simulations.md
     - Analysis Tools: user-guide/analysis-tools.md
     - PMF Calculations: user-guide/pmf-calculations.md
+    - FEP Calculations: user-guide/fep-calculations.md
     - Configuration: user-guide/configuration.md
     - Output Files: user-guide/output-files.md
     - Troubleshooting: user-guide/troubleshooting.md
@@ -158,6 +159,7 @@ nav:
     - Basic Tutorial: tutorials/basic-tutorial.md
     - Force Field Selection: tutorials/force-field-tutorial.md
     - PMF Workflow: tutorials/pmf-tutorial.md
+    - FEP Workflow: tutorials/fep-tutorial.md
     - Batch Processing: tutorials/batch-tutorial.md
     - Cluster Submission: tutorials/cluster-submission.md
   - Examples:
