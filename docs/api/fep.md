@@ -101,7 +101,7 @@ mapping = mapper.map(ligand_a_atoms, ligand_b_atoms)
 - `dist_cutoff` (`float`): atom-matching cutoff in **nm**
 - `charge_cutoff` (`float`): charge-difference threshold
 - `charge_common` (`str`): `ref`, `mut`, `mean`, or `none`
-- `charge_reception` (`str`): `unique`, `surround`, or `none`
+- `charge_reception` (`str`): standard workflow values are `unique`, `surround`, or `none`; the lower-level hybrid-topology layer also supports `surround_ext` for charge redistribution extension.
 - `recharge_hydrogen` (`bool`): whether hydrogen charges can be perturbed
 
 #### Notes
@@ -239,10 +239,17 @@ lambda:
 simulation:
   temperature: 310
   pressure: 1.0
+  per_window_npt_time_ps: 100
   production_time_ns: 2.0
   dt: 0.002
   equilibration_nvt_time_ps: 500
   equilibration_npt_time_ps: 500
+
+output:
+  trajectory_interval_ps: 500
+  energy_interval_ps: 10
+  log_interval_ps: 10
+  nstdhdl: 100
 
 execution:
   mode: standard

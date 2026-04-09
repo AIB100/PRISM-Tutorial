@@ -114,6 +114,7 @@ lambda:
 simulation:
   equilibration_nvt_time_ps: 500
   equilibration_npt_time_ps: 500
+  per_window_npt_time_ps: 100
   production_time_ns: 2.0
   dt: 0.002
   temperature: 310
@@ -135,7 +136,7 @@ Key points:
 | Item | Current behavior |
 |---|---|
 | `dist_cutoff: 0.6` | Means **0.6 nm**, not 0.6 Å. |
-| `strategy: decoupled` | This is the current code default. |
+| `strategy: decoupled` | This is the default schedule mode in PRISM. |
 | Default windows | `32` total windows split as `12` Coulomb + `20` VDW windows. |
 | CLI vs YAML | Use an explicit FEP YAML when you care about exact schedules. |
 | File roles | `fep_gaff2.yaml` controls the FEP schedule; `config_gaff2.yaml` supplies the general build settings. |
@@ -322,14 +323,14 @@ Important points:
 
 - `run_fep.sh` is the main entry point for scaffold execution.
 - `run_prod_standard.sh` and `run_prod_repex.sh` are the leg-level production helpers used by `run_fep.sh`.
-- `fep_scaffold.json` is mainly for inspection and debugging.
+- `fep_scaffold.json` records the generated layout and key scaffold metadata.
 - `mdps/` and `window_*` hold the generated window-specific inputs and production workspaces.
 
 For a fuller explanation of the scaffold layout, generated scripts, and per-window relaxation stages, see the [FEP Calculations guide](../user-guide/fep-calculations.md#generated-execution-scripts-and-configuration).
 
 ## Step 7: Choose an Execution Mode
 
-PRISM currently supports two production modes. The detailed execution model, resource behavior, and helper-script roles are documented in the [FEP Calculations guide](../user-guide/fep-calculations.md#production-modes).
+PRISM supports two production modes. The detailed execution model, resource behavior, and helper-script roles are documented in the [FEP Calculations guide](../user-guide/fep-calculations.md#production-modes).
 
 ### Standard mode
 
@@ -410,7 +411,7 @@ What to check:
 |---|---|
 | EM | Completes with a reasonable final force. |
 | NVT/NPT | Produce `*.gro` and `*.cpt`. |
-| Window outputs | Each `window_*` directory produces `prod.*` and `dhdl.xvg`. |
+| Window outputs | Each `window_*` directory produces `prod.*` and `dhdl.xvg` (the `dhdl.xvg` write frequency is controlled by `output.nstdhdl`, default `100` MD steps). |
 | Logs | Contain `Finished mdrun on rank 0`. |
 
 ## Step 10: Analyze Completed Windows
@@ -430,7 +431,7 @@ prism --fep-analyze \
 !!! note
     `prism --fep-analyze` accepts either a single repeat directory or a leg directory containing `repeat*` subdirectories. If you pass `.../bound` and `.../unbound`, the CLI auto-discovers all repeats and performs aggregated analysis across them.
 
-PRISM currently supports three standard estimators:
+PRISM supports three standard estimators:
 
 | Estimator | What it does | When to use |
 |---|---|---|
@@ -458,7 +459,7 @@ Open the generated report:
 firefox fep_results.html
 ```
 
-This file is created only after running the analysis step. By default it is written to the current working directory, or to the path specified with `--output`.
+This file is written by the analysis step, either to the current working directory or to the path specified with `--output`.
 
 <p align="center">
   <img src="/assets/fep/analysis_html_example.png" alt="Example PRISM FEP analysis HTML report" width="100%">
@@ -473,7 +474,7 @@ Use the numerical report to check:
 | Convergence | Estimates stabilize as more data are accumulated. |
 | Uncertainty | Bootstrap error bars are reasonable for the sampling length. |
 
-In practice, this is the result-validation step. Use it to decide whether:
+Use this report to decide whether:
 
 - the reported ΔΔG is supported by adequate window overlap
 - the estimate is stable rather than still drifting
@@ -515,6 +516,7 @@ These are the most important knobs:
 | `lambda.windows` | Sets the total schedule size. |
 | `lambda.coul_windows` | Controls the Coulomb stage length in decoupled mode. |
 | `lambda.vdw_windows` | Controls the VDW stage length in decoupled mode. |
+| `simulation.per_window_npt_time_ps` | Sets the short per-window NPT relaxation before production. |
 | `simulation.production_time_ns` | Sets per-window production length. |
 | `execution.mode` | Chooses standard versus replica-exchange execution. |
 | `execution.parallel_windows` | Sets standard-mode concurrency. |
@@ -549,9 +551,9 @@ You have now:
 
 - built a PRISM FEP scaffold for the 42-38 pair
 - inspected the atom mapping and hybrid topology
-- understood how PRISM currently transforms Coulomb and VDW terms across lambda windows
-- run smoke-test and full-production entry points
-- seen the main execution and analysis options exposed by the current code
+- understood how PRISM transforms Coulomb and VDW terms across lambda windows
+- run the production entry points
+- seen the main execution and analysis options exposed to users
 
 ## Additional Resources
 
