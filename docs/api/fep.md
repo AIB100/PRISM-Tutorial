@@ -1,96 +1,82 @@
 # FEP API
 
-The PRISM FEP module provides comprehensive tools for Free Energy Perturbation calculations, including atom mapping, hybrid topology construction, system building, and multi-estimator analysis.
+The PRISM FEP module provides tools for:
+
+- distance-based atom mapping
+- hybrid topology construction with A/B-state parameters
+- scaffold generation for bound and unbound legs
+- FEP post-processing for `window_*` outputs
 
 ## Core Classes
 
 ### FEPScaffoldBuilder
 
-Main class for building FEP systems with bound and unbound legs.
+`FEPScaffoldBuilder` stages a PRISM-style FEP workspace around an existing hybrid ligand package.
+
+The most direct entry point is `build(receptor_pdb, hybrid_ligand_dir)`. For PRISM-generated ligand force-field components, use `build_from_components(...)`.
 
 ```python
-from prism.fep import FEPScaffoldBuilder
+from prism.fep.modeling import FEPScaffoldBuilder
 
 builder = FEPScaffoldBuilder(
-    protein_path="protein.pdb",
-    ligand_a_path="ligand_a.mol2",
-    ligand_b_path="ligand_b.mol2",
     output_dir="fep_output",
-    forcefield="amber14sb",
-    ligand_forcefield="gaff2",
-    fep_config="fep.yaml"
+    config={"replicas": 1},
+    lambda_windows=32,
+    lambda_strategy="decoupled",
+    lambda_distribution="nonlinear",
+    overwrite=False,
 )
 
-# Build complete FEP scaffold
-fep_dir = builder.build()
+fep_dir = builder.build(
+    receptor_pdb="protein.pdb",
+    hybrid_ligand_dir="hybrid_ligand_dir",
+)
 ```
 
-#### Parameters
+#### Constructor Parameters
 
-- **protein_path** (str): Path to protein PDB file
-- **ligand_a_path** (str): Path to reference ligand (state A)
-- **ligand_b_path** (str): Path to mutant ligand (state B)
-- **output_dir** (str): Output directory for FEP scaffold
-- **forcefield** (str): Protein force field name
-- **ligand_forcefield** (str): Ligand force field (gaff, gaff2, openff, cgenff, opls, rtf)
-- **fep_config** (str): Path to FEP configuration YAML file
-- **replicas** (int): Number of independent repeats (default: 1)
+- `output_dir` (`str`): output scaffold directory
+- `config` (`dict | None`): scaffold/build configuration
+- `lambda_windows` (`int`): number of lambda windows
+- `lambda_strategy` (`str`): typically `decoupled` or `coupled`
+- `lambda_distribution` (`str`): lambda spacing strategy
+- `overwrite` (`bool`): whether to overwrite existing files
 
 #### Methods
 
-##### build()
+##### `build(...)`
 
-Build complete FEP scaffold with bound and unbound legs.
+Build the complete FEP scaffold.
 
-```python
-fep_dir = builder.build()
-```
+**Returns**: `Path` pointing to `GMX_PROLIG_FEP/`
 
-**Returns**: Path to FEP scaffold directory (`GMX_PROLIG_FEP/`)
+Typical layout:
 
-**Output structure**:
-```
+```text
 GMX_PROLIG_FEP/
+├── run_fep.sh
+├── fep_scaffold.json
+├── common/
+│   └── hybrid/
+│       ├── hybrid.itp
+│       ├── hybrid.gro
+│       └── mapping.html
 ├── bound/
-│   ├── repeat1/
-│   │   ├── window_00/  # Lambda window directories
-│   │   ├── window_01/
-│   │   └── ...
-│   └── repeat2/
-├── unbound/
-│   └── (same structure)
-└── common/
-    └── hybrid/
-        ├── hybrid.itp
-        ├── hybrid.gro
-        └── mapping.html
+│   └── repeat1/
+│       ├── build/
+│       ├── input/
+│       ├── mdps/
+│       ├── run_prod_standard.sh
+│       ├── run_prod_repex.sh
+│       └── window_00/ ... window_N/
+└── unbound/
+    └── repeat1/
+        └── window_00/ ... window_N/
 ```
-
-##### build_bound_leg()
-
-Build bound leg (protein-ligand complex) only.
-
-```python
-bound_dir = builder.build_bound_leg()
-```
-
-**Returns**: Path to bound leg directory
-
-##### build_unbound_leg()
-
-Build unbound leg (ligand in water) only.
-
-```python
-unbound_dir = builder.build_unbound_leg()
-```
-
-**Returns**: Path to unbound leg directory
-
----
 
 ### DistanceAtomMapper
 
-Performs distance-based atom mapping between two ligands.
+`DistanceAtomMapper` performs distance-based atom mapping between ligand A and ligand B.
 
 ```python
 from prism.fep import DistanceAtomMapper
@@ -98,59 +84,40 @@ from prism.fep import DistanceAtomMapper
 mapper = DistanceAtomMapper(
     dist_cutoff=0.6,
     charge_cutoff=0.05,
-    charge_strategy="mean"
+    charge_common="mean",
+    charge_reception="surround",
 )
 
-# Perform mapping
-mapping = mapper.map_atoms(
-    ligand_a_atoms,
-    ligand_b_atoms
-)
+mapping = mapper.map(ligand_a_atoms, ligand_b_atoms)
 ```
 
 #### Parameters
 
-- **dist_cutoff** (float): Maximum distance for atom matching in Å (default: 0.6)
-- **charge_cutoff** (float): Maximum charge difference for matching (default: 0.05)
-- **charge_strategy** (str): Charge assignment for common atoms ("ref", "mut", "mean")
-- **use_atom_types** (bool): Whether to consider atom types in matching (default: True)
+- `dist_cutoff` (`float`): atom-matching cutoff in **nm**
+- `charge_cutoff` (`float`): charge-difference threshold
+- `charge_common` (`str`): `ref`, `mut`, `mean`, or `none`
+- `charge_reception` (`str`): `unique`, `surround`, or `none`
+- `recharge_hydrogen` (`bool`): whether hydrogen charges can be perturbed
+
+#### Notes
+
+- Matching candidates require the same element and a distance below `dist_cutoff`.
+- Generic/sequential atom types such as OpenFF, OPLS/LigParGen, and SwissParam relax type-based compatibility checks.
+- GAFF/GAFF2 remains type-aware.
 
 #### Methods
 
-##### map_atoms()
+##### `map(ligand_a, ligand_b)`
 
-Map atoms between two ligands.
+Returns an `AtomMapping` object containing the final classification.
 
-```python
-mapping = mapper.map_atoms(
-    atoms_a,  # List of Atom objects from ligand A
-    atoms_b   # List of Atom objects from ligand B
-)
-```
+##### `from_config(config)`
 
-**Returns**: `AtomMapping` object with classification results
-
-**Atom classification**:
-- **Common**: Present in both ligands with same position/charge
-- **Transformed A**: Present only in ligand A (disappearing)
-- **Transformed B**: Present only in ligand B (appearing)
-- **Surrounding**: Near mutation site but not directly involved
-
-##### get_mapping_statistics()
-
-Get statistics about the mapping quality.
-
-```python
-stats = mapper.get_mapping_statistics()
-print(stats)
-# {'common': 28, 'transformed_a': 2, 'transformed_b': 2, 'surrounding': 0}
-```
-
----
+Constructs a mapper from a loaded PRISM config dictionary.
 
 ### HybridTopologyBuilder
 
-Constructs single-topology hybrid ligand with A/B-state encoding.
+Builds the ligand hybrid topology using the atom mapping and the A/B ligand topologies.
 
 ```python
 from prism.fep import HybridTopologyBuilder
@@ -158,510 +125,229 @@ from prism.fep import HybridTopologyBuilder
 hybrid_builder = HybridTopologyBuilder(
     mapping=atom_mapping,
     ligand_a_topology=topology_a,
-    ligand_b_topology=topology_b
+    ligand_b_topology=topology_b,
+    charge_reception="surround",
 )
 
-# Build hybrid topology
 hybrid_topology = hybrid_builder.build()
 ```
 
-#### Parameters
-
-- **mapping** (AtomMapping): Atom mapping from DistanceAtomMapper
-- **ligand_a_topology**: GROMACS topology for ligand A
-- **ligand_b_topology**: GROMACS topology for ligand B
-- **charge_reception** (str): How to handle charge redistribution ("surround", "none")
-
-#### Methods
-
-##### build()
-
-Build hybrid topology with A/B-state encoding.
-
-```python
-hybrid_topology = hybrid_builder.build()
-```
-
-**Returns**: `HybridTopology` object with atoms and parameters
-
-**Output format** (ITP file):
-```
-[ atoms ]
-;   nr       type  resnr residue  atom   cgnr    charge       mass   typeB    chargeB    massB
-   1        ca      1    LIG       CA     1     -0.120    12.011    ca      -0.120    12.011   ; Common
-   2        ha      1    LIG       HA     1      0.150     1.008    ha       0.150     1.008   ; Common
-   3        c       1    LIG       C1     1     -0.115    12.011    c       -0.115    12.011   ; A-only
-   4        hc      1    LIG       H1     1      0.150     1.008   dummy      0.000    12.011   ; Transformed A
-   5     dummy      1    LIG       C2     1      0.000    12.011     c        0.180    12.011   ; Transformed B
-   6     dummy      1    LIG       H2     1      0.000     1.008    hc       0.150     1.008   ; B-only
-```
-
----
+The generated hybrid topology stores A-state and B-state parameters in the same molecular description.[^gmx-free-energy-impl] [^gmx-free-energy-interactions]
 
 ## Analysis Classes
 
 ### FEPAnalyzer
 
-Analyzes FEP simulation results with multiple estimators.
+Analyzes one set of bound and unbound FEP windows.
 
 ```python
 from prism.fep.analysis import FEPAnalyzer
 
 analyzer = FEPAnalyzer(
-    bound_dir="fep_output/GMX_PROLIG_FEP/bound",
-    unbound_dir="fep_output/GMX_PROLIG_FEP/unbound",
-    temperature=310.0  # Kelvin
+    bound_dir="fep_output/GMX_PROLIG_FEP/bound/repeat1",
+    unbound_dir="fep_output/GMX_PROLIG_FEP/unbound/repeat1",
+    temperature=310.0,
+    estimator="MBAR",
+    bootstrap_n_jobs=4,
 )
 
-# Run analysis with MBAR estimator
-results = analyzer.analyze(
-    estimator="MBAR",
-    n_bootstrap=1000,
-    skip_frames=100  # Skip equilibration
-)
+results = analyzer.analyze()
+report_path = analyzer.generate_html_report("fep_results.html")
 ```
 
 #### Parameters
 
-- **bound_dir** (str): Path to bound leg directory
-- **unbound_dir** (str): Path to unbound leg directory
-- **temperature** (float): Simulation temperature in Kelvin (default: 310.0)
-- **repeats** (list): List of repeat numbers to analyze (default: all)
+- `bound_dir` (`str | Path | list`): bound repeat directory or repeat directories
+- `unbound_dir` (`str | Path | list`): unbound repeat directory or repeat directories
+- `temperature` (`float`): simulation temperature in Kelvin
+- `estimator` (`str`): `MBAR`, `BAR`, or `TI`
+- `backend` (`str`): `alchemlyb` or `gmx_bar`
+- `energy_components` (`list[str] | None`): defaults to `['elec', 'vdw']`
+- `bootstrap_n_jobs` (`int`): bootstrap worker count
 
-#### Methods
+##### `analyze()`
 
-##### analyze()
+Runs the configured estimator and returns a `FEResults` object.
 
-Run FEP analysis with specified estimator.
+##### `generate_html_report(output_path)`
 
-```python
-results = analyzer.analyze(
-    estimator="MBAR",      # "BAR", "MBAR", or "TI"
-    n_bootstrap=1000,      # Bootstrap iterations for uncertainty
-    n_jobs=8,              # Parallel jobs for bootstrap
-    skip_frames=100,       # Frames to skip for equilibration
-    repeats=None           # Specific repeats (None = all)
-)
-```
-
-**Returns**: Dictionary with analysis results
-
-```python
-{
-    'bound_dg': -5.23,           # Bound leg ΔG (kcal/mol)
-    'unbound_dg': -3.45,         # Unbound leg ΔG (kcal/mol)
-    'binding_dg': 1.78,          # ΔΔG binding (kcal/mol)
-    'bound_error': 0.15,         # Bound leg uncertainty
-    'unbound_error': 0.12,       # Unbound leg uncertainty
-    'binding_error': 0.20,       # ΔΔG uncertainty
-    'overlap_matrix': [...],     # Overlap between windows
-    'dhdl_profiles': [...]       # ∂H/∂λ profiles
-}
-```
-
-##### generate_html_report()
-
-Generate interactive HTML report.
-
-```python
-analyzer.generate_html_report(
-    output_path="fep_results.html",
-    include_plots=True,
-    include_overlap=True,
-    include_convergence=True
-)
-```
-
----
+Generates an HTML report for the current results.
 
 ### FEPMultiEstimatorAnalyzer
 
-Run multiple estimators and generate comparison report.
+Runs multiple estimators and compares them in one report.
 
 ```python
 from prism.fep.analysis import FEPMultiEstimatorAnalyzer
 
-multi_analyzer = FEPMultiEstimatorAnalyzer(
-    bound_dir="fep_output/GMX_PROLIG_FEP/bound",
-    unbound_dir="fep_output/GMX_PROLIG_FEP/unbound",
-    temperature=310.0
+multi = FEPMultiEstimatorAnalyzer(
+    bound_dirs="fep_output/GMX_PROLIG_FEP/bound/repeat1",
+    unbound_dirs="fep_output/GMX_PROLIG_FEP/unbound/repeat1",
+    estimators=["TI", "BAR", "MBAR"],
+    temperature=310.0,
+    bootstrap_n_jobs=4,
 )
 
-# Run all estimators
-results = multi_analyzer.analyze_all(
-    estimators=["BAR", "MBAR", "TI"],
-    n_bootstrap=1000,
-    n_jobs=8
-)
-
-# Generate comparison report
-multi_analyzer.generate_html_report(
-    output_path="fep_comparison.html"
-)
+results = multi.analyze()
 ```
 
-#### Methods
+#### Parameters
 
-##### analyze_all()
-
-Run analysis with multiple estimators.
-
-```python
-results = multi_analyzer.analyze_all(
-    estimators=["BAR", "MBAR", "TI"],
-    n_bootstrap=1000,
-    n_jobs=8,
-    skip_frames=100
-)
-```
-
-**Returns**: Dictionary with results from all estimators
-
-```python
-{
-    'BAR': {'binding_dg': 1.75, 'binding_error': 0.18, ...},
-    'MBAR': {'binding_dg': 1.78, 'binding_error': 0.20, ...},
-    'TI': {'binding_dg': 1.82, 'binding_error': 0.22, ...}
-}
-```
-
-##### compare_estimators()
-
-Compare results across estimators.
-
-```python
-comparison = multi_analyzer.compare_estimators()
-print(comparison)
-# BAR:  1.75 ± 0.18 kcal/mol
-# MBAR: 1.78 ± 0.20 kcal/mol
-# TI:   1.82 ± 0.22 kcal/mol
-#
-# Consistency: All estimators agree within error bars
-```
-
----
+- `bound_dirs` (`str | Path | list`): bound repeat directory or directories
+- `unbound_dirs` (`str | Path | list`): unbound repeat directory or directories
+- `estimators` (`list[str] | None`): estimator list
+- `temperature` (`float`): simulation temperature in Kelvin
+- `backend` (`str`): currently `alchemlyb` for multi-estimator mode
+- `bootstrap_n_jobs` (`int`): bootstrap worker count
 
 ## Configuration
 
 ### FEPConfig
 
-Load and manage FEP configuration from YAML files.
+`FEPConfig` loads and merges PRISM FEP configuration from YAML files.
 
 ```python
-from prism.fep import FEPConfig, read_fep_config
+from prism.fep.common.config import FEPConfig
 
-# Load from YAML file
-config = read_fep_config("fep.yaml")
-
-# Access configuration sections
-print(config.mapping.dist_cutoff)        # 0.6
-print(config.lambda.windows)            # 11
-print(config.simulation.temperature)    # 310
+cfg = FEPConfig(work_dir=".")
+print(cfg.get_mapping_params())
+print(cfg.get_lambda_params())
+print(cfg.get_simulation_params())
 ```
 
-#### Configuration Structure
+Current canonical YAML structure:
 
 ```yaml
-# Mapping parameters
 mapping:
-  dist_cutoff: 0.6
+  dist_cutoff: 0.6        # nm
   charge_cutoff: 0.05
   charge_common: mean
   charge_reception: surround
 
-# Lambda windows
 lambda:
-  strategy: decoupled     # or 'coupled'
-  distribution: nonlinear  # or 'linear'
-  windows: 11
-  coul_windows: 4         # For decoupled strategy
-  vdw_windows: 7          # For decoupled strategy
+  strategy: decoupled
+  distribution: nonlinear
+  windows: 32
+  coul_windows: 12
+  vdw_windows: 20
 
-# Simulation parameters
 simulation:
-  temperature: 310        # Kelvin
-  pressure: 1.0           # bar
-  production_time_ns: 2.0 # Production per window
-  dt: 0.002              # Timestep (ps)
+  temperature: 310
+  pressure: 1.0
+  production_time_ns: 2.0
+  dt: 0.002
   equilibration_nvt_time_ps: 500
   equilibration_npt_time_ps: 500
 
-# Execution parameters
 execution:
-  mode: standard          # or 'repex'
+  mode: standard
   total_cpus: 56
   num_gpus: 4
   parallel_windows: 4
   use_gpu_pme: true
 ```
 
----
+### `read_fep_config(config_file)`
+
+Reads the legacy FEbuilder-compatible config format and returns a plain dictionary.
 
 ## Data Structures
 
 ### Atom
 
-Represents an atom in a ligand.
+Represents a ligand atom.
 
-```python
-from prism.fep import Atom
+Key fields:
 
-atom = Atom(
-    index=1,
-    name="CA",
-    type="ca",
-    charge=-0.12,
-    mass=12.011,
-    coord=np.array([1.0, 2.0, 3.0])
-)
-```
+- `index`
+- `name`
+- `type`
+- `charge`
+- `mass`
+- `coord`
 
-#### Attributes
-
-- **index** (int): Atom index (1-based)
-- **name** (str): Atom name
-- **type** (str): Atom type (force field specific)
-- **charge** (float): Partial charge (e)
-- **mass** (float): Atomic mass (amu)
-- **coord** (np.ndarray): 3D coordinates (Å)
-
----
+Coordinates used by the current mapper are interpreted in **nm**.
 
 ### HybridAtom
 
-Represents an atom in hybrid topology with A/B states.
+Represents a hybrid-topology atom with A/B-state parameters.
 
-```python
-from prism.fep import HybridAtom
+Key fields:
 
-hybrid_atom = HybridAtom(
-    index=1,
-    name="CA",
-    type_a="ca",
-    type_b="ca",
-    charge_a=-0.12,
-    charge_b=-0.12,
-    mass_a=12.011,
-    mass_b=12.011,
-    classification="common",  # or 'transformed_a', 'transformed_b'
-    coord=np.array([1.0, 2.0, 3.0])
-)
-```
-
-#### Attributes
-
-- **index** (int): Atom index
-- **name** (str): Atom name
-- **type_a** (str): Atom type in state A
-- **type_b** (str): Atom type in state B
-- **charge_a** (float): Charge in state A
-- **charge_b** (float): Charge in state B
-- **mass_a** (float): Mass in state A
-- **mass_b** (float): Mass in state B
-- **classification** (str): Atom classification
-- **coord** (np.ndarray): 3D coordinates
-
----
+- `type_a`, `type_b`
+- `charge_a`, `charge_b`
+- `mass_a`, `mass_b`
+- `classification`
 
 ### AtomMapping
 
-Container for atom mapping results.
+Container for the final atom-mapping classification.
+
+Typical access patterns:
 
 ```python
-mapping = mapper.map_atoms(atoms_a, atoms_b)
-
-# Access mapping results
-print(mapping.common_atoms)        # List of common atom pairs
-print(mapping.transformed_a_atoms) # List of A-only atoms
-print(mapping.transformed_b_atoms) # List of B-only atoms
-print(mapping.surrounding_atoms)   # List of surrounding atoms
+mapping = mapper.map(atoms_a, atoms_b)
+print(mapping.common_atoms)
+print(mapping.transformed_a_atoms)
+print(mapping.transformed_b_atoms)
+print(mapping.surrounding_atoms)
 ```
-
-#### Methods
-
-##### get_statistics()
-
-Get mapping statistics.
-
-```python
-stats = mapping.get_statistics()
-# {'common': 28, 'transformed_a': 2, 'transformed_b': 2, 'surrounding': 0}
-```
-
-##### validate()
-
-Validate mapping quality.
-
-```python
-is_valid = mapping.validate()
-# Returns True if:
-# - No gray atoms (all classified)
-# - Total charge ≈ 0 for neutral molecules
-# - Reasonable number of transformed atoms
-```
-
----
 
 ## CLI Interface
 
 ### FEP Analysis CLI
 
-Command-line interface for analyzing FEP results.
+Current supported CLI entry points are:
+
+```bash
+prism --fep-analyze \
+  --bound-dir fep_output/GMX_PROLIG_FEP/bound/repeat1 \
+  --unbound-dir fep_output/GMX_PROLIG_FEP/unbound/repeat1 \
+  --estimator MBAR BAR TI \
+  --bootstrap-n-jobs 8 \
+  --output fep_results.html \
+  --json fep_results.json
+```
+
+Equivalent module entry point:
 
 ```bash
 python -m prism.fep.analysis.cli \
-  --bound-dir fep_output/GMX_PROLIG_FEP/bound \
-  --unbound-dir fep_output/GMX_PROLIG_FEP/unbound \
-  --estimator BAR MBAR TI \
-  --n-bootstrap 1000 \
-  --n-jobs 8 \
+  --bound-dir fep_output/GMX_PROLIG_FEP/bound/repeat1 \
+  --unbound-dir fep_output/GMX_PROLIG_FEP/unbound/repeat1 \
+  --estimator MBAR BAR TI \
+  --bootstrap-n-jobs 8 \
   --output fep_results.html
 ```
 
 #### Arguments
 
-- `--bound-dir`: Path to bound leg directory (required)
-- `--unbound-dir`: Path to unbound leg directory (required)
-- `--estimator`: Estimator(s) to use (BAR, MBAR, TI)
-- `--all-estimators`: Run all available estimators
-- `--n-bootstrap`: Number of bootstrap iterations (default: 1000)
-- `--n-jobs`: Parallel jobs for bootstrap (default: 4)
-- `--skip-frames`: Frames to skip for equilibration (default: 0)
-- `--repeats`: Specific repeats to analyze (default: all)
-- `--output`: Output HTML file path (required)
-- `--temperature`: Simulation temperature in Kelvin (default: 310)
-- `--json`: Save results to JSON file (optional)
-
----
+- `--bound-dir`: repeat directory containing `window_*`
+- `--unbound-dir`: repeat directory containing `window_*`
+- `--estimator`: one or more of `BAR`, `MBAR`, `TI`
+- `--all-estimators`: run all estimators
+- `--bootstrap-n-jobs`: bootstrap worker count
+- `--output`: HTML report path
+- `--json`: optional JSON output
+- `--temperature`: simulation temperature in Kelvin
+- `--backend`: analysis backend
 
 ## Utility Functions
 
 ### Naming Functions
 
-Generate standardized FEP system names.
-
 ```python
-from prism.fep import generate_fep_system_name
+from prism.fep import generate_fep_system_name, validate_fep_system_name
 
-system_name = generate_fep_system_name(
-    protein_ff="amber14sb",
-    ligand_ff="gaff2"
-)
-# Returns: "amber14sb-mut_gaff2"
+name = generate_fep_system_name("amber14sb_OL15", "gaff2")
+assert validate_fep_system_name(name)
 ```
 
-### Validation Functions
+## References
 
-Validate FEP system naming.
-
-```python
-from prism.fep import validate_fep_system_name
-
-is_valid = validate_fep_system_name("amber14sb-mut_gaff2")
-# Returns: True
-```
-
----
-
-## Complete Example
-
-```python
-from prism.fep import (
-    FEPScaffoldBuilder,
-    DistanceAtomMapper,
-    FEPAnalyzer
-)
-from prism.fep import read_fep_config
-
-# 1. Load configuration
-config = read_fep_config("fep.yaml")
-
-# 2. Build FEP system
-builder = FEPScaffoldBuilder(
-    protein_path="protein.pdb",
-    ligand_a_path="ligand_a.mol2",
-    ligand_b_path="ligand_b.mol2",
-    output_dir="fep_output",
-    forcefield="amber14sb",
-    ligand_forcefield="gaff2",
-    fep_config="fep.yaml",
-    replicas=3
-)
-
-fep_dir = builder.build()
-print(f"FEP scaffold built: {fep_dir}")
-
-# 3. Run simulations (external)
-# bash fep_output/GMX_PROLIG_FEP/run_fep.sh all
-
-# 4. Analyze results
-analyzer = FEPAnalyzer(
-    bound_dir=f"{fep_dir}/bound",
-    unbound_dir=f"{fep_dir}/unbound",
-    temperature=310.0
-)
-
-results = analyzer.analyze(
-    estimator="MBAR",
-    n_bootstrap=1000,
-    n_jobs=8
-)
-
-print(f"ΔΔG binding: {results['binding_dg']:.2f} ± {results['binding_error']:.2f} kcal/mol")
-
-# 5. Generate report
-analyzer.generate_html_report("fep_results.html")
-```
-
----
-
-## Error Handling
-
-### Common Exceptions
-
-```python
-from prism.exceptions import (
-    FEPMappingError,
-    FEPTopologyError,
-    FEPAnalysisError
-)
-
-try:
-    mapping = mapper.map_atoms(atoms_a, atoms_b)
-except FEPMappingError as e:
-    print(f"Mapping failed: {e}")
-    # Try adjusting cutoffs
-    mapper.dist_cutoff = 0.8
-    mapping = mapper.map_atoms(atoms_a, atoms_b)
-
-try:
-    hybrid = hybrid_builder.build()
-except FEPTopologyError as e:
-    print(f"Topology construction failed: {e}")
-    # Check for missing B-state parameters
-
-try:
-    results = analyzer.analyze(estimator="MBAR")
-except FEPAnalysisError as e:
-    print(f"Analysis failed: {e}")
-    # Check for missing dhdl.xvg files
-```
-
----
-
-## Performance Tips
-
-1. **Parallelize lambda windows**: Use `parallel_windows` in config
-2. **Bootstrap parallelization**: Set `n_jobs` in analysis
-3. **Memory-efficient analysis**: Process one repeat at a time
-4. **GPU acceleration**: Enable GPU for PME calculations
-5. **Optimal window count**: Balance accuracy vs computational cost
-
----
-
-## See Also
-
-- [FEP User Guide](../user-guide/fep-calculations.md) - Complete FEP documentation
-- [FEP Tutorial](../tutorials/fep-tutorial.md) - Step-by-step workflow
-- [Builder API](builder.md) - General system building
-- [Analysis API](analysis.md) - Trajectory analysis tools
+[^gmx-current]: GROMACS current manual. https://manual.gromacs.org/current/
+[^gmx-free-energy-impl]: GROMACS current reference manual, *Free energy implementation*. https://manual.gromacs.org/current/reference-manual/special/free-energy-implementation.html
+[^gmx-free-energy-interactions]: GROMACS current reference manual, *Free-energy interactions*. https://manual.gromacs.org/current/reference-manual/functions/free-energy-interactions.html
+[^gmx-grompp]: GROMACS current online help, `gmx grompp`. https://manual.gromacs.org/current/onlinehelp/gmx-grompp.html
+[^fep-user-guide]: PRISM Tutorial, *FEP Calculations*. ../user-guide/fep-calculations.md
+[^fep-tutorial]: PRISM Tutorial, *FEP Workflow Tutorial*. ../tutorials/fep-tutorial.md

@@ -1,113 +1,176 @@
 # FEP Workflow Tutorial
 
-**Level:** Advanced
-**Time:** 2-4 hours (+ computation time)
-**Topics:** Relative binding free energy, FEP, lambda windows, multi-estimator analysis
+**Level:** Advanced  
+**Time:** 2-4 hours (+ computation time)  
+**Topics:** Relative binding free energy, hybrid topologies, lambda schedules, execution modes, analysis
 
-Learn how to calculate relative binding free energies between similar ligands using PRISM's complete FEP workflow.
+This tutorial walks through the current PRISM FEP workflow using the **42-38** HIF-2α ligand pair.
 
 ## Objectives
 
-In this tutorial, you will learn:
+You will learn how to:
 
-- How to prepare ligands for FEP calculations
-- Setting up atom mapping and hybrid topology
-- Running lambda window simulations
-- Analyzing results with BAR/MBAR/TI estimators
-- Validating convergence and quality
+- prepare a ligand pair for PRISM FEP
+- inspect atom mapping and the hybrid topology
+- understand how PRISM transforms the system across lambda windows
+- run the generated bound and unbound legs
+- choose between `standard` and `repex` execution
+- analyze completed window data with BAR, MBAR, and TI
 
 ## Prerequisites
 
-- Completed [Basic Tutorial](basic-tutorial.md) or familiar with PRISM basics
-- GROMACS installed and configured
-- 4+ GPUs available for parallel lambda window simulations
-- Basic understanding of free energy calculations
+- completed [Basic Tutorial](basic-tutorial.md) or equivalent PRISM familiarity
+- GROMACS installed and available as `gmx`
+- enough CPU/GPU resources for your chosen window schedule
+- basic understanding of alchemical free-energy calculations
+
+!!! note
+    Multiple GPUs improve throughput, but PRISM can still generate valid scaffolds for smaller GPU counts or CPU-only debugging workflows.
 
 ## Background: The 42-38 System
 
-We'll use the **42-38 ligand pair** from HIF-2α (Hypoxia-Inducible Factor 2α):
+We use the **42-38** ligand pair from HIF-2α:
 
-- **Ligand 42**: Reference ligand with a methoxyethylphenyl group
-- **Ligand 38**: Mutant ligand with an ethylphenyl group (missing methoxy)
+- **Ligand 42**: reference ligand (state A)
+- **Ligand 38**: mutant ligand (state B)
 
-This is a **single-point mutation** ideal for FEP:
-- Small structural change (removal of -OCH₃)
-- High chemical similarity
-- Well-defined binding mode
+This pair is suitable for FEP because the chemical change is local and the ligands share a clear common scaffold.
 
-**Expected ΔG**: ~1-3 kcal/mol (mutant weaker binding)
-
-## Step 1: Obtain Test System
-
-Download the tutorial data:
+## Step 1: Obtain the Example System
 
 ```bash
-# Clone PRISM repository (includes test data)
 git clone https://github.com/AIB001/PRISM.git
 cd PRISM/tests/gxf/FEP/unit_test/42-38
-
-# Or download directly
-wget https://github.com/AIB001/PRISM/raw/main/tests/gxf/FEP/unit_test/42-38/input/receptor.pdb
-wget https://github.com/AIB001/PRISM/raw/main/tests/gxf/FEP/unit_test/42-38/input/42.pdb
-wget https://github.com/AIB001/PRISM/raw/main/tests/gxf/FEP/unit_test/42-38/input/38.pdb
 ```
 
-**Directory structure**:
+Relevant files:
 
-```
+```text
 42-38/
 ├── input/
-│   ├── receptor.pdb    # HIF-2α protein (244 residues)
-│   ├── 42.pdb          # Reference ligand (with -OCH₃)
-│   └── 38.pdb          # Mutant ligand (without -OCH₃)
+│   ├── sys.pdb
+│   ├── 42.pdb
+│   └── 38.pdb
 └── configs/
-    ├── fep_gaff2.yaml  # FEP configuration
-    └── case_gaff2.yaml # System configuration
+    ├── fep_gaff2.yaml
+    └── case_gaff2.yaml
 ```
 
-## Step 2: Examine FEP Configuration
-
-Let's look at the FEP configuration file:
+## Step 2: Review the FEP Configuration
 
 ```bash
 cat configs/fep_gaff2.yaml
 ```
 
-**Key parameters**:
+A representative setup is:
 
 ```yaml
-# Atom mapping
 mapping:
-  dist_cutoff: 0.6        # Distance threshold (Å)
-  charge_cutoff: 0.05     # Charge difference threshold
-  charge_common: mean     # Average charges for common atoms
+  dist_cutoff: 0.6
+  charge_cutoff: 0.05
+  charge_common: mean
+  charge_reception: surround
 
-# Lambda windows
 lambda:
-  strategy: decoupled     # Separate coulomb + vdw
-  windows: 32             # Total windows (high accuracy)
-  coul_windows: 12        # Electrostatic windows
-  vdw_windows: 20         # Van der Waals windows
+  strategy: decoupled
+  distribution: nonlinear
+  windows: 32
+  coul_windows: 12
+  vdw_windows: 20
 
-# Simulation
 simulation:
-  temperature: 310        # physiological temperature
-  production_time_ns: 2.0 # Production per window
-  dt: 0.002              # 2 fs timestep
+  equilibration_nvt_time_ps: 500
+  equilibration_npt_time_ps: 500
+  production_time_ns: 2.0
+  dt: 0.002
+  temperature: 310
+  pressure: 1.0
+
+execution:
+  mode: standard
+  num_gpus: 4
+  parallel_windows: 4
+  total_cpus: 56
+  use_gpu_pme: true
+  mdrun_update_mode: auto
+
+replicas: 1
 ```
 
-**Why 32 windows?**
-- More windows = better overlap = lower uncertainty
-- 32 windows provide ~0.1 kcal/mol precision
-- Trade-off: 3-4x more computation time vs 11 windows
+Key points:
 
-## Step 3: Build FEP System
+| Item | Current behavior |
+|---|---|
+| `dist_cutoff: 0.6` | Means **0.6 nm**, not 0.6 Å. |
+| `strategy: decoupled` | This is the current code default. |
+| Default windows | `32` total windows split as `12` Coulomb + `20` VDW windows. |
+| CLI vs YAML | Use an explicit FEP YAML when you care about exact schedules. |
 
-Create the FEP scaffold:
+## Step 3: Understand What the Lambda Windows Actually Do
+
+This is the most important conceptual point.
+
+In PRISM's default **decoupled** schedule:
+
+1. **Coulomb stage**
+   - `coul-lambdas` move from `0 -> 1`
+   - `vdw-lambdas` stay at `0`
+2. **VDW stage**
+   - `coul-lambdas` stay at `1`
+   - `vdw-lambdas` move from `0 -> 1`
+
+At the same time:
+
+| Lambda vector | Current behavior |
+|---|---|
+| `bonded-lambdas` | Follow the Coulomb schedule. |
+| `mass-lambdas` | Follow the Coulomb schedule. |
+
+So PRISM does **not** simply scale a single scalar lambda through the whole transformation. It writes separate lambda vectors into each MDP.[^gmx-free-energy-impl] [^gmx-free-energy-interactions]
+
+If you choose:
+
+- `strategy: coupled`
+  - Coulomb and VDW transform together across all windows
+- `strategy: custom`
+  - you must provide both `custom_coul_lambdas` and `custom_vdw_lambdas`
+  - if one custom array is shorter than the other, PRISM pads the shorter one with its final value
+
+The following figure visualizes the three lambda schedule strategies:
+
+![PRISM lambda schedule modes](../assets/fep/lambda_schedule_modes.png)
+
+**What the figure shows**:
+- **Decoupled**: The default two-stage approach — electrostatics (red line) finish first (windows 0-11), then van der Waals (blue squares) take over (windows 12-31)
+- **Coupled**: Both red and blue lines move together from 0 to 1 across all windows
+- **Custom**: A user-defined example where you control exactly when each term transforms
+
+Supported schedule distributions are:
+
+| Distribution | Meaning |
+|---|---|
+| `linear` | Evenly spaced lambda points. |
+| `nonlinear` | Denser endpoint sampling; current default. |
+| `quadratic` | Endpoint-biased spacing from a quadratic curve. |
+
+### Interpreting charge redistribution
+
+**The core principle**: In practice, smaller and more local perturbations usually improve phase-space overlap and make FEP easier to converge. By keeping electrostatic properties consistent in the common (shared) regions of the ligands, we often:
+
+- **Reduce the magnitude of the perturbation** → better convergence
+- **Lower statistical uncertainty** → more reliable ΔG estimates
+- **Maintain physical consistency** → common regions behave similarly in both states
+
+The following figure visualizes the charge redistribution strategies:
+
+![Charge redistribution modes](../assets/fep/charge_redistribution.png)
+
+For parameter details, see the table in [Which options should users know about first?](#which-options-should-users-know-about-first).
+
+## Step 4: Build the FEP Scaffold
 
 ```bash
-# From 42-38 directory
-prism input/receptor.pdb input/42.pdb -o amber14sb_ol15-mut_gaff2 \
+prism input/sys.pdb input/42.pdb -o amber14sb_OL15-mut_gaff2 \
   --fep \
   --mutant input/38.pdb \
   --ligand-forcefield gaff2 \
@@ -116,384 +179,306 @@ prism input/receptor.pdb input/42.pdb -o amber14sb_ol15-mut_gaff2 \
   --config configs/case_gaff2.yaml
 ```
 
-**What PRISM does**:
+Expected outputs:
 
-1. **Reads ligands**: Parses 42.pdb and 38.pdb
-2. **Performs mapping**: Matches atoms by distance + charge
-3. **Creates hybrid topology**: Single ITP with A/B states
-4. **Sets up lambda windows**: Creates 32 window directories
-5. **Generates scripts**: Automated run scripts for all legs
+- `amber14sb_OL15-mut_gaff2/GMX_PROLIG_FEP/`
+- `common/hybrid/` with hybrid topology and mapping artifacts
+- `bound/repeat1/` and `unbound/repeat1/`
+- root-level `run_fep.sh`
+- `fep_scaffold.json`
 
-**Expected output** (takes 2-5 minutes):
+## Step 5: Inspect Atom Mapping and Hybrid Files
 
-```
-✓ Atom mapping complete: 28 common, 4 transformed, 0 surrounding
-✓ Hybrid topology generated
-✓ FEP scaffold created: amber14sb_ol15-mut_gaff2/GMX_PROLIG_FEP/
-  - bound/repeat1/ with 32 lambda windows
-  - unbound/repeat1/ with 32 lambda windows
-  - common/hybrid/ with topology files
-```
-
-## Step 4: Inspect Atom Mapping
-
-Open the mapping visualization:
+Open the mapping report:
 
 ```bash
-# View in browser
-firefox amber14sb_ol15-mut_gaff2/GMX_PROLIG_FEP/common/hybrid/mapping.html
+firefox amber14sb_OL15-mut_gaff2/GMX_PROLIG_FEP/common/hybrid/mapping.html
 ```
 
-**What to check**:
-
-1. **No gray atoms**: All atoms should be colored (no `classification: "unknown"`)
-2. **Mapping statistics**:
-   ```
-   Ligand A: common=28, transformed=2, surrounding=0
-   Ligand B: common=28, transformed=2, surrounding=0
-   ```
-3. **Chemical correctness**:
-   - Common atoms: C, H, N, O backbone
-   - Transformed A: O, CH₃ (methoxy group)
-   - Transformed B: H (replacing methoxy)
-4. **Total charge**: Should be ≈0 for neutral ligands
-
-**Troubleshooting**:
-- ❌ Gray atoms: Use MOL2 files instead of PDB (includes bond orders)
-- ❌ Too many transformed atoms: Adjust `dist_cutoff` in config
-- ❌ Wrong charges: Check ligand protonation states
-
-## Step 5: Understand Directory Structure
-
-Examine the created scaffold:
+Inspect the scaffold summary:
 
 ```bash
-cd amber14sb_ol15-mut_gaff2/GMX_PROLIG_FEP
-
-# Bound leg structure
-ls bound/repeat1/
-# window_00/  window_01/  ...  window_31/  (32 lambda windows)
-
-# Unbound leg structure
-ls unbound/repeat1/
-# window_00/  window_01/  ...  window_31/
-
-# Common hybrid files
-ls common/hybrid/
-# hybrid.itp  hybrid.gro  mapping.html
+python -m json.tool amber14sb_OL15-mut_gaff2/GMX_PROLIG_FEP/fep_scaffold.json | less
 ```
 
-**Each lambda window contains**:
+Check that:
 
-```
-window_XX/
-├── grompp.mdp        # Lambda-specific MDP parameters
-├── topol.tpr         # GROMACS topology
-├── conf.gro          # Initial coordinates
-└── run.sh            # Execution script
-```
+1. the transformed region is local and chemically sensible
+2. the common scaffold matches your expectation
+3. there are no obviously incorrect long-range swaps
+4. the manifest contains a non-empty `mapping` section
 
-**Lambda progression** (decoupled strategy):
-
-- Windows 0-11: Coulomb transformation (λ: 0.0 → 1.0)
-- Windows 12-31: VDW transformation (λ: 0.0 → 1.0)
-
-## Step 6: Quick Test (100 Steps)
-
-Before full production, test with short runs:
+## Step 6: Inspect the Scaffold Layout
 
 ```bash
-cd amber14sb_ol15-mut_gaff2/GMX_PROLIG_FEP
-
-# Test bound leg, first window only
-PRISM_MDRUN_NSTEPS=100 bash run_fep.sh bound 1
-
-# Check if it completed
-ls bound/repeat1/window_00/md.log
+cd amber14sb_OL15-mut_gaff2/GMX_PROLIG_FEP
+find . -maxdepth 3 | sed -n '1,80p'
 ```
 
-**Expected output**:
+Typical layout:
 
+```text
+GMX_PROLIG_FEP/
+├── run_fep.sh
+├── fep_scaffold.json
+├── common/
+│   └── hybrid/
+├── bound/
+│   └── repeat1/
+│       ├── build/
+│       ├── input/
+│       ├── mdps/
+│       ├── run_prod_standard.sh
+│       ├── run_prod_repex.sh
+│       └── window_00/ ... window_31/
+└── unbound/
+    └── repeat1/
+        ├── build/
+        ├── input/
+        ├── mdps/
+        ├── run_prod_standard.sh
+        ├── run_prod_repex.sh
+        └── window_00/ ... window_31/
 ```
-GROMACS reminder: ...
-Running EM...
-EM completed: 100 steps, max force = XXX kJ/mol/nm
-Running NVT...
-NVT completed: 100 steps
-Running NPT...
-NPT completed: 100 steps
-Running production...
-Production completed: 100 steps
-```
 
-**If this works**, your system is properly set up!
+Important points:
 
-## Step 7: Run Full Production
+- `run_fep.sh` drives leg-level EM, NVT, NPT, then production windows
+- `mdps/` contains leg-level and window-level MDP files
+- `window_*` directories are the per-window production workspaces
+- each window gets its own short lambda-specific relaxation before production
 
-For the complete calculation:
+## Step 7: Run a Short Smoke Test
+
+Before full production, validate the scaffold with a short test:
 
 ```bash
-# Option 1: Run all (bound + unbound, all windows)
-bash run_fep.sh all
-
-# Option 2: Run bound leg only
+export PRISM_MDRUN_NSTEPS=100
 bash run_fep.sh bound
-
-# Option 3: Run specific repeat and window
-bash run_fep.sh bound 1 5  # Bound, repeat1, window5
+bash run_fep.sh unbound
+unset PRISM_MDRUN_NSTEPS
 ```
 
-**Parallel execution**:
+This is useful to validate:
 
-The script automatically runs 4 windows in parallel (configurable):
+| Check | Why it matters |
+|---|---|
+| Hybrid topology | Confirms the scaffold is chemically coherent. |
+| Generated scripts | Confirms the execution layer was written correctly. |
+| Per-window grompp/mdrun setup | Confirms lambda-specific files and commands are valid. |
+| GPU and CPU allocation logic | Confirms runtime resource assignment behaves as expected. |
 
-```bash
-# Edit configs/fep_gaff2.yaml to change parallelization
+!!! warning
+    `PRISM_MDRUN_NSTEPS` is only for infrastructure validation. Do not use these truncated runs for scientific free-energy estimation.
+
+## Step 8: Choose an Execution Mode
+
+PRISM currently supports two production modes.
+
+### Standard mode
+
+This is the usual default:
+
+```yaml
 execution:
-  parallel_windows: 4   # Number of concurrent windows
-  total_cpus: 56        # Total CPU cores
-  num_gpus: 4           # Number of GPUs
+  mode: standard
+  num_gpus: 4
+  parallel_windows: 4
 ```
 
-**Estimated time** (32 windows, 2 ns each):
+Behavior:
 
-- Per window: 4-8 hours (depends on system size)
-- Total: 32 windows × 6 hours ÷ 4 GPUs = **~48 hours**
+| Property | `standard` mode behavior |
+|---|---|
+| Window execution | Windows are independent. |
+| Concurrency | Up to `parallel_windows` windows run concurrently. |
+| GPU assignment | GPUs are assigned round-robin. |
+| Best for | Simple throughput-oriented execution. |
 
-## Step 8: Monitor Progress
+### Replica-exchange mode
 
-Check simulation status:
+```yaml
+execution:
+  mode: repex
+  num_gpus: 4
+```
+
+Behavior:
+
+| Property | `repex` mode behavior |
+|---|---|
+| Helper script | PRISM writes `run_prod_repex.sh`. |
+| Launch style | Production is launched with `gmx_mpi -multidir`. |
+| Best for | Lambda replica exchange instead of independent windows. |
+
+!!! note
+    `execution.parallel_windows` matters in `standard` mode. In `repex`, the main switch is `execution.mode: repex`.
+
+## Step 9: Run Full Production
+
+After the smoke test passes:
 
 ```bash
-# Check completion status
-for i in {00..31}; do
-  if [ -f bound/repeat1/window_${i}/production.log ]; then
-    echo "Window $i: $(tail -1 bound/repeat1/window_${i}/production.log)"
-  fi
-done
-
-# Or use the monitoring script
-bash check_em_nvt_progress.sh amber14sb_ol15-mut_gaff2
+bash run_fep.sh bound
+bash run_fep.sh unbound
 ```
 
-**Look for**:
-- ✅ "Finished mdrun" in production.log
-- ✅ Reasonable EM convergence (max force < 1000 kJ/mol/nm)
-- ❌ "Segmentation fault" or domain decomposition errors
-
-## Step 9: Analyze Results
-
-After simulations complete, run the analysis:
+Or both legs at once:
 
 ```bash
-# Generate dhdl.xvg files first (if not auto-generated)
-cd amber14sb_ol15-mut_gaff2/GMX_PROLIG_FEP
-
-# Run multi-estimator analysis
-python -m prism.fep.analysis.cli \
-  --bound bound \
-  --unbound unbound \
-  --estimator BAR MBAR TI \
-  --n-bootstrap 1000 \
-  --n-jobs 8 \
-  --output fep_results.html
+bash run_fep.sh all
 ```
 
-**Analysis steps**:
+If your scaffold contains multiple replicas, the master script also supports:
 
-1. **Parse dhdl.xvg**: Extract ∂H/∂λ from each window
-2. **Calculate ΔG**: Apply BAR, MBAR, TI estimators
-3. **Bootstrap**: Estimate uncertainties with 1000 resamples
-4. **Generate report**: Create interactive HTML
-
-**Expected results**:
-
-```
-=== FEP Analysis Results ===
-
-Bound leg ΔG:   -5.23 ± 0.15 kcal/mol
-Unbound leg ΔG: -3.45 ± 0.12 kcal/mol
-
-ΔΔG (binding): 1.78 ± 0.20 kcal/mol
-
-Estimator breakdown:
-  BAR:  1.75 ± 0.18 kcal/mol
-  MBAR: 1.78 ± 0.20 kcal/mol
-  TI:   1.82 ± 0.22 kcal/mol
+```bash
+bash run_fep.sh bound1
+bash run_fep.sh unbound2
+bash run_fep.sh bound1-3
 ```
 
-**Interpretation**:
+## Step 10: Monitor Progress
 
-- Positive ΔΔG: Ligand 38 binds weaker than ligand 42
-- Magnitude: ~1.8 kcal/mol (small but measurable)
-- Consistency: All 3 estimators agree (good sign!)
+Examples:
 
-## Step 10: Validate Quality
+```bash
+find bound/repeat1 -maxdepth 1 -type d -name 'window_*' | wc -l
+ls bound/repeat1/window_00/
+```
 
-Open the HTML report:
+What to check:
+
+| Item | Expected sign |
+|---|---|
+| EM | Completes with a reasonable final force. |
+| NVT/NPT | Produce `*.gro` and `*.cpt`. |
+| Window outputs | Each `window_*` directory produces `prod.*` and `dhdl.xvg`. |
+| Logs | Contain `Finished mdrun on rank 0`. |
+
+## Step 11: Analyze Completed Windows
+
+```bash
+prism --fep-analyze \
+  --bound-dir amber14sb_OL15-mut_gaff2/GMX_PROLIG_FEP/bound/repeat1 \
+  --unbound-dir amber14sb_OL15-mut_gaff2/GMX_PROLIG_FEP/unbound/repeat1 \
+  --estimator MBAR BAR TI \
+  --bootstrap-n-jobs 8 \
+  --output fep_results.html \
+  --json fep_results.json
+```
+
+This reads `dhdl.xvg` files from each `window_*` directory and computes binding free energies using three estimators:
+
+| Estimator | What it does | When to use |
+|---|---|---|
+| **TI** (Thermodynamic Integration) | Integrates ∂H/∂λ across windows | Smooth transformations with well-sampled gradients |
+| **BAR** (Bennett Acceptance Ratio) | Compares neighboring window pairs | Standard FEP with adequate sampling |
+| **MBAR** (Multistate BAR) | Reweights all data simultaneously | Most efficient; provides overlap matrix for quality checks |
+
+**Analysis workflow**:
+1. Reads `dhdl.xvg` time series from each window
+2. Computes ΔG_bound and ΔG_unbound (with bootstrap error estimates)
+3. Calculates binding free energy: ΔG_bind = ΔG_unbound - ΔG_bound
+4. Generates HTML report with overlap matrices and convergence plots
+
+## Step 12: Validate the Results
+
+Open the report:
 
 ```bash
 firefox fep_results.html
 ```
 
-**Quality checks**:
+Check:
 
-1. **Overlap matrix**: Green/yellow cells = good overlap
-2. **dhdl plots**: Smooth curves without jumps
-3. **Convergence**: ΔG stabilizes over time
-4. **Uncertainties**: SE < 1.0 kcal/mol (acceptable)
+| Metric | What to look for |
+|---|---|
+| Overlap matrix | Neighboring windows overlap adequately. |
+| Estimator agreement | BAR, MBAR, and TI are broadly consistent. |
+| Convergence | Estimates stabilize as more data are accumulated. |
+| Uncertainty | Bootstrap error bars are reasonable for the sampling length. |
 
-**Warning signs**:
+## Common Questions
 
-- ⚠️ Red cells in overlap matrix → Add more lambda windows
-- ⚠️ Large error bars (> 1 kcal/mol) → Increase production time
-- ⚠️ Diverging ΔG over time → Check simulation stability
+### Why are there so many window-level MDP files?
 
-## Step 11: Compare with Experiment
+Because PRISM writes explicit per-window lambda schedules, plus short per-window equilibration stages (`em_short`, `npt_short`) before production.
 
-If experimental data is available:
+### Is `--lambda-windows` enough by itself?
 
-```
-Experimental ΔΔG (42→38): 2.1 ± 0.3 kcal/mol
-Calculated ΔΔG (42→38):  1.8 ± 0.2 kcal/mol
+Not if you want reproducibility. For serious FEP work, define `lambda.strategy`, `distribution`, and any stage counts explicitly in `fep.yaml`.
 
-Difference: 0.3 kcal/mol (within error bars)
-```
+### Why does PRISM redistribute charges during mapping?
 
-**Good agreement**! The FEP calculation correctly predicts:
-- Ligand 38 binds weaker
-- Magnitude is reasonable
-- Uncertainty captures experimental error
+FEP accuracy depends on minimizing the perturbation between ligands. If common (shared) atoms have very different charges in the two states, the alchemical transformation becomes larger and harder to converge:
 
-## Advanced: Force Field Comparison
+- **Larger perturbation** → poorer convergence → higher uncertainty in ΔG
+- **Smaller perturbation** → better convergence → more reliable results
 
-Test how force field choice affects results:
+By using `charge_common: mean` and `charge_reception: surround`, PRISM keeps electrostatic properties consistent in shared regions, confining the major changes to the actual mutation site.[^gmx-free-energy-impl] [^gmx-free-energy-interactions]
 
-```bash
-# GAFF2 result (from above)
-ΔΔG_GAFF2 = 1.8 ± 0.2 kcal/mol
+### Which options should users know about first?
 
-# Now try OpenFF
-prism input/receptor.pdb input/42.pdb -o amber14sb_ol15-mut_openff \
-  --fep --mutant input/38.pdb \
-  --ligand-forcefield openff \
-  --forcefield amber14sb_OL15 \
-  --fep-config configs/fep_openff.yaml
+These are the most important knobs:
 
-# OpenFF result
-ΔΔG_OpenFF = 2.1 ± 0.3 kcal/mol
-
-# Compare
-GAFF2: 1.8 ± 0.2 kcal/mol
-OpenFF: 2.1 ± 0.3 kcal/mol
-Experiment: 2.1 ± 0.3 kcal/mol
-
-→ OpenFF closer to experiment for this system!
-```
+| Parameter | Why it matters |
+|---|---|
+| `mapping.dist_cutoff` | Controls how permissive atom mapping is. |
+| `mapping.charge_common` | Changes how shared atoms inherit charge information. |
+| `mapping.charge_reception` | Changes where balancing charge is redistributed. |
+| `lambda.strategy` | Chooses decoupled, coupled, or custom lambda behavior. |
+| `lambda.distribution` | Controls where windows are denser or sparser. |
+| `lambda.windows` | Sets the total schedule size. |
+| `lambda.coul_windows` | Controls the Coulomb stage length in decoupled mode. |
+| `lambda.vdw_windows` | Controls the VDW stage length in decoupled mode. |
+| `simulation.production_time_ns` | Sets per-window production length. |
+| `execution.mode` | Chooses standard versus replica-exchange execution. |
+| `execution.parallel_windows` | Sets standard-mode concurrency. |
+| `execution.num_gpus` | Affects GPU allocation in generated scripts. |
+| `execution.total_cpus` / `execution.omp_threads` | Control CPU/OpenMP layout. |
+| `execution.use_gpu_pme` | Requests GPU PME in production helpers. |
+| `execution.mdrun_update_mode` | Controls GPU/CPU update behavior in runtime commands. |
+| `replicas` | Controls how many repeat directories are scaffolded. |
 
 ## Troubleshooting
 
-### Issue: Mapping shows gray atoms
+### Mapping looks wrong
 
-**Symptom**: `classification: "unknown"` in mapping HTML
+- prefer MOL2 or SDF if PDB loses bond-order information
+- verify protonation and tautomer states before building
+- inspect `mapping.html` first
 
-**Cause**: Missing bond order information (PDB files)
+### Short run crashes during EM/NVT/NPT
 
-**Fix**:
-```bash
-# Use MOL2 files instead
-obabel input/42.pdb -O input/42.mol2 -h
-obabel input/38.pdb -O input/38.mol2 -h
+- inspect `common/hybrid/hybrid.itp` and `common/hybrid/mapping.html`
+- inspect `build/em.log`, `build/nvt.log`, and `build/npt.log`
+- rerun a smoke test before attempting long production
 
-# Rebuild with MOL2 files
-prism input/receptor.pdb input/42.mol2 -o output \
-  --fep --mutant input/38.mol2 \
-  --ligand-forcefield gaff2
-```
+### Analysis CLI finds no windows
 
-### Issue: Simulation crashes during EM
-
-**Symptom**: "Segmentation fault" or nan coordinates
-
-**Cause**: Incorrect hybrid topology or bad starting structure
-
-**Fix**:
-```bash
-# Check hybrid topology
-grep "atoms" common/hybrid/hybrid.itp -A 50
-
-# Verify B-state masses are present
-# Every transformed atom should have mass_b > 0
-
-# If missing masses, rebuild with latest PRISM
-```
-
-### Issue: Poor overlap between windows
-
-**Symptom**: Red cells in overlap matrix
-
-**Cause**: Too few lambda windows or poor lambda spacing
-
-**Fix**:
-```yaml
-# Add more windows in fep.yaml
-lambda:
-  windows: 21        # Increase from 11
-  coul_windows: 8    # More coulomb windows
-  vdw_windows: 13     # More vdw windows
-```
-
-### Issue: High uncertainty in ΔG
-
-**Symptom**: Standard error > 1.0 kcal/mol
-
-**Cause**: Insufficient sampling per window
-
-**Fix**:
-```yaml
-# Increase production time
-simulation:
-  production_time_ns: 5.0  # Increase from 2.0
-```
+- pass a repeat directory, not only the FEP root
+- confirm that `window_*` directories exist and contain production outputs
 
 ## Summary
 
-In this tutorial, you:
+You have now:
 
-✅ Built a complete FEP system for the 42-38 ligand pair
-✅ Inspected atom mapping and hybrid topology
-✅ Ran lambda window simulations (or learned how to)
-✅ Analyzed results with BAR/MBAR/TI estimators
-✅ Validated convergence and quality
-✅ Compared calculated ΔΔG with experiment
-
-**Key takeaways**:
-
-- FEP is **powerful** for relative binding free energies
-- **Proper setup** is critical (mapping, hybrid topology)
-- **Quality checks** ensure reliable results
-- **Multiple estimators** provide robustness
-- **Force field choice** affects accuracy
-
-## Next Steps
-
-- Try the [Force Field Tutorial](force-field-tutorial.md) to compare multiple force fields
-- Learn about [PMF Calculations](pmf-tutorial.md) for absolute binding free energy
-- Explore [Batch Processing](batch-tutorial.md) for high-throughput FEP
-- Study the [API Reference](../api/fep.md) for custom FEP workflows
+- built a PRISM FEP scaffold for the 42-38 pair
+- inspected the atom mapping and hybrid topology
+- understood how PRISM currently transforms Coulomb and VDW terms across lambda windows
+- run smoke-test and full-production entry points
+- seen the main execution and analysis options exposed by the current code
 
 ## Additional Resources
 
-- [FEP User Guide](../user-guide/fep-calculations.md) - Complete FEP documentation
-- [Test Systems](https://github.com/AIB001/PRISM/tree/main/tests/gxf/FEP/unit_test) - More examples
-- [Analysis Tools](../user-guide/analysis-tools.md) - Post-processing FEP data
+- [FEP User Guide](../user-guide/fep-calculations.md)
+- [Configuration](../user-guide/configuration.md)
+- [Analysis Tools](../user-guide/analysis-tools.md)
+- [Test Systems](https://github.com/AIB001/PRISM/tree/main/tests/gxf/FEP/unit_test)
 
-<div class="whats-next" markdown>
+## References
 
-## What's Next
-
-- [Learn about PMF Calculations for absolute binding free energy](pmf-tutorial.md)
-- [Compare force fields in the Force Field Tutorial](force-field-tutorial.md)
-- [Explore advanced analysis techniques](../user-guide/analysis-tools.md)
-
-</div>
+[^gmx-current]: GROMACS current manual. https://manual.gromacs.org/current/
+[^gmx-free-energy-impl]: GROMACS current reference manual, *Free energy implementation*. https://manual.gromacs.org/current/reference-manual/special/free-energy-implementation.html
+[^gmx-free-energy-interactions]: GROMACS current reference manual, *Free-energy interactions*. https://manual.gromacs.org/current/reference-manual/functions/free-energy-interactions.html
+[^gmx-grompp]: GROMACS current online help, `gmx grompp`. https://manual.gromacs.org/current/onlinehelp/gmx-grompp.html
