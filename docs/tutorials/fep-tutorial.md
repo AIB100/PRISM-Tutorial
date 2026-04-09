@@ -36,31 +36,63 @@ We use the **42-38** ligand pair from HIF-2α:
 
 This pair is suitable for FEP because the chemical change is local and the ligands share a clear common scaffold.
 
-## Step 1: Obtain the Example System
+## Step 1: Download the Example Files
+
+This tutorial now mirrors the real PRISM unit-test example layout for the **42-38** HIF-2α FEP system. The packaged files follow the same `input/` and `configs/` structure used under `tests/gxf/FEP/unit_test/42-38/`.
+
+The ligands are provided as **MOL2** files because that preserves bond order and atom typing information more reliably than plain ligand PDB files. The receptor remains a PDB file.
+
+<div class="grid" markdown>
+
+[:material-download: **input/receptor.pdb**](../assets/examples/fep/42-38/input/receptor.pdb){ .md-button }
+
+[:material-download: **input/42.mol2**](../assets/examples/fep/42-38/input/42.mol2){ .md-button }
+
+[:material-download: **input/38.mol2**](../assets/examples/fep/42-38/input/38.mol2){ .md-button }
+
+[:material-download: **configs/fep_gaff2.yaml**](../assets/examples/fep/42-38/configs/fep_gaff2.yaml){ .md-button }
+
+[:material-download: **configs/config_gaff2.yaml**](../assets/examples/fep/42-38/configs/config_gaff2.yaml){ .md-button }
+
+</div>
+
+Or download them via command line:
 
 ```bash
-git clone https://github.com/AIB001/PRISM.git
-cd PRISM/tests/gxf/FEP/unit_test/42-38
+mkdir -p prism_fep_tutorial/input prism_fep_tutorial/configs
+cd prism_fep_tutorial
+
+wget -O input/receptor.pdb https://raw.githubusercontent.com/AIB100/PRISM-Tutorial/main/docs/assets/examples/fep/42-38/input/receptor.pdb
+wget -O input/42.mol2 https://raw.githubusercontent.com/AIB100/PRISM-Tutorial/main/docs/assets/examples/fep/42-38/input/42.mol2
+wget -O input/38.mol2 https://raw.githubusercontent.com/AIB100/PRISM-Tutorial/main/docs/assets/examples/fep/42-38/input/38.mol2
+wget -O configs/fep_gaff2.yaml https://raw.githubusercontent.com/AIB100/PRISM-Tutorial/main/docs/assets/examples/fep/42-38/configs/fep_gaff2.yaml
+wget -O configs/config_gaff2.yaml https://raw.githubusercontent.com/AIB100/PRISM-Tutorial/main/docs/assets/examples/fep/42-38/configs/config_gaff2.yaml
 ```
 
-Relevant files:
+Verify the files:
 
-```text
-42-38/
-├── input/
-│   ├── sys.pdb
-│   ├── 42.pdb
-│   └── 38.pdb
-└── configs/
-    ├── fep_gaff2.yaml
-    └── case_gaff2.yaml
+```bash
+find input configs -maxdepth 1 -type f | sort
 ```
+
+This tutorial uses the same file naming convention as the real `tests/gxf/FEP/unit_test/42-38/` example:
+
+- **input/receptor.pdb** for the receptor
+- **input/42.mol2** for ligand 42 (reference/state A)
+- **input/38.mol2** for ligand 38 (mutant/state B)
+- **configs/fep_gaff2.yaml** for FEP-specific settings
+- **configs/config_gaff2.yaml** for the general PRISM build configuration
+
+If you want to mirror the legacy GAFF2 Python unit test even more closely, note that the test fixture also contains `configs/case_gaff2.yaml`. This tutorial uses `config_gaff2.yaml` instead because it matches the packaged example file names directly (`receptor.pdb`, `42`, `38`) and is easier to read.
 
 ## Step 2: Review the FEP Configuration
 
 ```bash
 cat configs/fep_gaff2.yaml
+cat configs/config_gaff2.yaml
 ```
+
+The packaged files are copied from the real `42-38` fixture. `fep_gaff2.yaml` controls the FEP schedule, while `config_gaff2.yaml` provides the general PRISM build settings used alongside it.
 
 A representative setup is:
 
@@ -90,11 +122,11 @@ execution:
   mode: standard
   num_gpus: 4
   parallel_windows: 4
-  total_cpus: 56
+  total_cpus: 40
   use_gpu_pme: true
   mdrun_update_mode: auto
 
-replicas: 1
+replicas: 3
 ```
 
 Key points:
@@ -105,6 +137,8 @@ Key points:
 | `strategy: decoupled` | This is the current code default. |
 | Default windows | `32` total windows split as `12` Coulomb + `20` VDW windows. |
 | CLI vs YAML | Use an explicit FEP YAML when you care about exact schedules. |
+| File roles | `fep_gaff2.yaml` controls the FEP schedule; `config_gaff2.yaml` supplies the general build settings. |
+| Repeat counts | FEP repeat directories come from top-level `replicas` in `fep_gaff2.yaml` (here `3`). The `simulation.repeats` field in `config_gaff2.yaml` is legacy/general metadata and does **not** determine FEP repeat directory count. |
 
 ## Step 3: Understand What the Lambda Windows Actually Do
 
@@ -140,18 +174,23 @@ The following figure visualizes the three lambda schedule strategies:
 
 ![PRISM lambda schedule modes](../assets/fep/lambda_schedule_modes.png)
 
-**What the figure shows**:
+#### Figure interpretation
+
 - **Decoupled**: The default two-stage approach — electrostatics (red line) finish first (windows 0-11), then van der Waals (blue squares) take over (windows 12-31)
 - **Coupled**: Both red and blue lines move together from 0 to 1 across all windows
 - **Custom**: A user-defined example where you control exactly when each term transforms
 
 Supported schedule distributions are:
 
+<p align="center">
+  <img src="/assets/fep/lambda_distributions.png" alt="PRISM lambda point distributions" width="100%">
+</p>
+
 | Distribution | Meaning |
 |---|---|
-| `linear` | Evenly spaced lambda points. |
-| `nonlinear` | Denser endpoint sampling; current default. |
-| `quadratic` | Endpoint-biased spacing from a quadratic curve. |
+| `linear` | Uniform spacing, i.e. `linspace(0, 1, n_points)`. |
+| `nonlinear` | PRISM's default endpoint-dense reference schedule, based on a 32-point table. |
+| `quadratic` | Symmetric piecewise-quadratic spacing with denser endpoints and a sparser middle. |
 
 ### Interpreting charge redistribution
 
@@ -170,30 +209,44 @@ For parameter details, see the table in [Which options should users know about f
 ## Step 4: Build the FEP Scaffold
 
 ```bash
-prism input/sys.pdb input/42.pdb -o amber14sb_OL15-mut_gaff2 \
+prism input/receptor.pdb input/42.mol2 -o amber14sb_OL15-mut_gaff2 \
   --fep \
-  --mutant input/38.pdb \
+  --mutant input/38.mol2 \
   --ligand-forcefield gaff2 \
   --forcefield amber14sb_OL15 \
   --fep-config configs/fep_gaff2.yaml \
-  --config configs/case_gaff2.yaml
+  --config configs/config_gaff2.yaml
 ```
 
 Expected outputs:
 
 - `amber14sb_OL15-mut_gaff2/GMX_PROLIG_FEP/`
 - `common/hybrid/` with hybrid topology and mapping artifacts
-- `bound/repeat1/` and `unbound/repeat1/`
+- `bound/repeat1/ ... repeat3/` and `unbound/repeat1/ ... repeat3/` (because this example uses `replicas: 3`)
 - root-level `run_fep.sh`
 - `fep_scaffold.json`
 
+The scaffold is built in a fixed order: PRISM prepares the bound leg first, then builds the unbound leg using the bound-leg box vectors so that both legs start from the same box dimensions.
+
+**Important:** the scaffold step already creates `common/hybrid/mapping.html`, so you can inspect the mapping before launching any MD.
+
 ## Step 5: Inspect Atom Mapping and Hybrid Files
+
+At this stage, PRISM has already generated the mapping report.
+
+You will find it at:
+
+- `GMX_PROLIG_FEP/common/hybrid/mapping.html`
 
 Open the mapping report:
 
 ```bash
 firefox amber14sb_OL15-mut_gaff2/GMX_PROLIG_FEP/common/hybrid/mapping.html
 ```
+
+<p align="center">
+  <img src="/assets/fep/mapping_html_example.png" alt="Example PRISM mapping HTML report" width="100%">
+</p>
 
 Inspect the scaffold summary:
 
@@ -207,6 +260,22 @@ Check that:
 2. the common scaffold matches your expectation
 3. there are no obviously incorrect long-range swaps
 4. the manifest contains a non-empty `mapping` section
+
+Use this report to inspect:
+
+- atom correspondence before any MD is run
+- transformed, surrounding, and common classes in a chemically local context
+- atom labels and charges if the mapping looks suspicious
+- whether the hybrid topology is worth testing further
+
+The mapping report contains:
+
+- a control bar for coloring mode, labels, charges, and export
+- two aligned ligand drawings for side-by-side comparison
+- a legend summarizing the FEP atom classes
+- an atom table for detailed inspection of the correspondence
+
+**First checkpoint:** if the mapping report looks chemically implausible, stop here and correct the transformation before running production windows.
 
 ## Step 6: Inspect the Scaffold Layout
 
@@ -224,7 +293,9 @@ GMX_PROLIG_FEP/
 ├── common/
 │   └── hybrid/
 ├── bound/
-│   └── repeat1/
+│   ├── repeat1/
+│   ├── repeat2/
+│   └── repeat3/
 │       ├── build/
 │       ├── input/
 │       ├── mdps/
@@ -232,7 +303,9 @@ GMX_PROLIG_FEP/
 │       ├── run_prod_repex.sh
 │       └── window_00/ ... window_31/
 └── unbound/
-    └── repeat1/
+    ├── repeat1/
+    ├── repeat2/
+    └── repeat3/
         ├── build/
         ├── input/
         ├── mdps/
@@ -244,6 +317,7 @@ GMX_PROLIG_FEP/
 Important points:
 
 - `run_fep.sh` drives leg-level EM, NVT, NPT, then production windows
+- `fep_scaffold.json` is a scaffold manifest for inspection/debugging; the normal runtime path usually does not read it back
 - `mdps/` contains leg-level and window-level MDP files
 - `window_*` directories are the per-window production workspaces
 - each window gets its own short lambda-specific relaxation before production
@@ -344,6 +418,7 @@ Examples:
 ```bash
 find bound/repeat1 -maxdepth 1 -type d -name 'window_*' | wc -l
 ls bound/repeat1/window_00/
+ls bound/ | grep '^repeat'
 ```
 
 What to check:
@@ -359,13 +434,16 @@ What to check:
 
 ```bash
 prism --fep-analyze \
-  --bound-dir amber14sb_OL15-mut_gaff2/GMX_PROLIG_FEP/bound/repeat1 \
-  --unbound-dir amber14sb_OL15-mut_gaff2/GMX_PROLIG_FEP/unbound/repeat1 \
+  --bound-dir amber14sb_OL15-mut_gaff2/GMX_PROLIG_FEP/bound \
+  --unbound-dir amber14sb_OL15-mut_gaff2/GMX_PROLIG_FEP/unbound \
   --estimator MBAR BAR TI \
   --bootstrap-n-jobs 8 \
   --output fep_results.html \
   --json fep_results.json
 ```
+
+!!! note
+    `prism --fep-analyze` accepts either a single repeat directory or a leg directory containing `repeat*` subdirectories. If you pass `.../bound` and `.../unbound`, the CLI auto-discovers all repeats and performs aggregated analysis across them.
 
 This reads `dhdl.xvg` files from each `window_*` directory and computes binding free energies using three estimators:
 
@@ -375,10 +453,16 @@ This reads `dhdl.xvg` files from each `window_*` directory and computes binding 
 | **BAR** (Bennett Acceptance Ratio) | Compares neighboring window pairs | Standard FEP with adequate sampling |
 | **MBAR** (Multistate BAR) | Reweights all data simultaneously | Most efficient; provides overlap matrix for quality checks |
 
-**Analysis workflow**:
+### Analysis workflow
+
 1. Reads `dhdl.xvg` time series from each window
 2. Computes ΔG_bound and ΔG_unbound (with bootstrap error estimates)
-3. Calculates binding free energy: ΔG_bind = ΔG_unbound - ΔG_bound
+3. Calculates the binding free energy as
+
+   $$
+   \Delta G_{\mathrm{bind}} = \Delta G_{\mathrm{unbound}} - \Delta G_{\mathrm{bound}}
+   $$
+
 4. Generates HTML report with overlap matrices and convergence plots
 
 ## Step 12: Validate the Results
@@ -389,6 +473,12 @@ Open the report:
 firefox fep_results.html
 ```
 
+This file is created only after running the analysis step. By default it is written to the current working directory, or to the path specified with `--output`.
+
+<p align="center">
+  <img src="/assets/fep/analysis_html_example.png" alt="Example PRISM FEP analysis HTML report" width="100%">
+</p>
+
 Check:
 
 | Metric | What to look for |
@@ -397,6 +487,20 @@ Check:
 | Estimator agreement | BAR, MBAR, and TI are broadly consistent. |
 | Convergence | Estimates stabilize as more data are accumulated. |
 | Uncertainty | Bootstrap error bars are reasonable for the sampling length. |
+
+This report serves a different purpose from `common/hybrid/mapping.html`:
+
+- `mapping.html` checks whether the scaffold and atom mapping are chemically sensible
+- `fep_results.html` (or another file chosen with `--output`) checks whether the simulation data are numerically well behaved
+
+In practice, this is the result-validation step. Use it to decide whether:
+
+- the reported $\Delta\Delta G$ is supported by adequate window overlap
+- the estimate is stable rather than still drifting
+- the estimator choice materially changes the conclusion
+- additional sampling or a revised lambda schedule is needed
+
+**Result-validation checkpoint:** do not interpret $\Delta\Delta G$ without checking overlap, convergence, and estimator agreement.
 
 ## Common Questions
 
@@ -456,7 +560,7 @@ These are the most important knobs:
 
 ### Analysis CLI finds no windows
 
-- pass a repeat directory, not only the FEP root
+- pass either a repeat directory or a leg directory containing `repeat*`
 - confirm that `window_*` directories exist and contain production outputs
 
 ## Summary
@@ -478,7 +582,7 @@ You have now:
 
 ## References
 
-[^gmx-current]: GROMACS current manual. https://manual.gromacs.org/current/
-[^gmx-free-energy-impl]: GROMACS current reference manual, *Free energy implementation*. https://manual.gromacs.org/current/reference-manual/special/free-energy-implementation.html
-[^gmx-free-energy-interactions]: GROMACS current reference manual, *Free-energy interactions*. https://manual.gromacs.org/current/reference-manual/functions/free-energy-interactions.html
-[^gmx-grompp]: GROMACS current online help, `gmx grompp`. https://manual.gromacs.org/current/onlinehelp/gmx-grompp.html
+[^gmx-current]: [GROMACS current manual](https://manual.gromacs.org/current/).
+[^gmx-free-energy-impl]: [GROMACS current reference manual, *Free energy implementation*](https://manual.gromacs.org/current/reference-manual/special/free-energy-implementation.html).
+[^gmx-free-energy-interactions]: [GROMACS current reference manual, *Free-energy interactions*](https://manual.gromacs.org/current/reference-manual/functions/free-energy-interactions.html).
+[^gmx-grompp]: [GROMACS current online help, `gmx grompp`](https://manual.gromacs.org/current/onlinehelp/gmx-grompp.html).

@@ -35,9 +35,9 @@ def main() -> None:
     ]
 
     plt.rcParams['font.family'] = 'Times New Roman'
-    plt.rcParams['font.size'] = 11
+    plt.rcParams['font.size'] = 14
 
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+    fig, axes = plt.subplots(3, 1, figsize=(7.5, 14))
 
     colors = {
         'coul': '#C0392B',
@@ -58,10 +58,10 @@ def main() -> None:
         ax.plot(x, bonded, linestyle='--', linewidth=1.8, color=colors['bonded'], label='bonded-lambdas')
         ax.plot(x, mass, linestyle=':', linewidth=2.0, color=colors['mass'], label='mass-lambdas')
 
-        ax.set_title(title, fontweight='bold', fontsize=19)
-        ax.set_xlabel('Window index', fontsize=16)
-        ax.set_ylabel('Lambda value', fontsize=16)
-        ax.tick_params(axis='both', which='major', labelsize=13)
+        ax.set_title(title, fontweight='bold', fontsize=24)
+        ax.set_xlabel('Window index', fontsize=20)
+        ax.set_ylabel('Lambda value', fontsize=20)
+        ax.tick_params(axis='both', which='major', labelsize=16)
         ax.set_ylim(-0.05, 1.05)
         ax.set_xlim(-0.5, len(x) - 0.5)
         if len(x) <= 10:
@@ -71,10 +71,10 @@ def main() -> None:
         ax.grid(True, alpha=0.25, linestyle='--')
 
     handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='lower center', ncol=4, frameon=False, bbox_to_anchor=(0.5, -0.06), fontsize=17)
-    fig.suptitle('PRISM FEP lambda schedule modes', fontsize=22, fontweight='bold', y=0.96)
+    fig.legend(handles, labels, loc='lower center', ncol=2, frameon=False, bbox_to_anchor=(0.5, 0.03), fontsize=21)
+    fig.suptitle('PRISM FEP lambda schedule modes', fontsize=28, fontweight='bold', y=0.988)
 
-    plt.tight_layout(rect=[0, 0.06, 1, 0.94])
+    plt.tight_layout(rect=[0, 0.095, 1, 0.982])
 
     out = Path(__file__).with_name('lambda_schedule_modes.png')
     fig.savefig(out, dpi=220, bbox_inches='tight')

@@ -55,7 +55,7 @@ Typical layout:
 ```text
 GMX_PROLIG_FEP/
 ├── run_fep.sh
-├── fep_scaffold.json
+├── fep_scaffold.json        # scaffold manifest (metadata/debugging; not normally consumed at runtime)
 ├── common/
 │   └── hybrid/
 │       ├── hybrid.itp
@@ -73,6 +73,11 @@ GMX_PROLIG_FEP/
     └── repeat1/
         └── window_00/ ... window_N/
 ```
+
+Two HTML outputs are relevant in normal use:
+
+- `common/hybrid/mapping.html`: interactive atom-mapping and hybrid-topology inspection report generated during scaffold construction
+- `fep_analysis_report.html` or `fep_multi_estimator_report.html`: post-simulation analysis report generated from `dhdl.xvg` data
 
 ### DistanceAtomMapper
 
@@ -345,9 +350,9 @@ assert validate_fep_system_name(name)
 
 ## References
 
-[^gmx-current]: GROMACS current manual. https://manual.gromacs.org/current/
-[^gmx-free-energy-impl]: GROMACS current reference manual, *Free energy implementation*. https://manual.gromacs.org/current/reference-manual/special/free-energy-implementation.html
-[^gmx-free-energy-interactions]: GROMACS current reference manual, *Free-energy interactions*. https://manual.gromacs.org/current/reference-manual/functions/free-energy-interactions.html
-[^gmx-grompp]: GROMACS current online help, `gmx grompp`. https://manual.gromacs.org/current/onlinehelp/gmx-grompp.html
-[^fep-user-guide]: PRISM Tutorial, *FEP Calculations*. ../user-guide/fep-calculations.md
-[^fep-tutorial]: PRISM Tutorial, *FEP Workflow Tutorial*. ../tutorials/fep-tutorial.md
+[^gmx-current]: [GROMACS current manual](https://manual.gromacs.org/current/).
+[^gmx-free-energy-impl]: [GROMACS current reference manual, *Free energy implementation*](https://manual.gromacs.org/current/reference-manual/special/free-energy-implementation.html).
+[^gmx-free-energy-interactions]: [GROMACS current reference manual, *Free-energy interactions*](https://manual.gromacs.org/current/reference-manual/functions/free-energy-interactions.html).
+[^gmx-grompp]: [GROMACS current online help, `gmx grompp`](https://manual.gromacs.org/current/onlinehelp/gmx-grompp.html).
+[^fep-user-guide]: [PRISM Tutorial, *FEP Calculations*](../user-guide/fep-calculations.md).
+[^fep-tutorial]: [PRISM Tutorial, *FEP Workflow Tutorial*](../tutorials/fep-tutorial.md).
