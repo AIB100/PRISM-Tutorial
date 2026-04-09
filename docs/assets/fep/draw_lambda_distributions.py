@@ -21,7 +21,8 @@ def main() -> None:
     distributions = [
         ('Linear', build_distribution(n_points, 'linear'), '#2E86C1'),
         ('Nonlinear (default)', build_distribution(n_points, 'nonlinear'), '#C0392B'),
-        ('Quadratic', build_distribution(n_points, 'quadratic'), '#27AE60'),
+        ('Quadratic (p=2)', build_distribution(n_points, 'quadratic', quadratic_exponent=2.0), '#27AE60'),
+        ('Quadratic (p=4)', build_distribution(n_points, 'quadratic', quadratic_exponent=4.0), '#8E44AD'),
     ]
 
     plt.rcParams['font.family'] = 'Times New Roman'
@@ -30,8 +31,9 @@ def main() -> None:
     fig, ax = plt.subplots(1, 1, figsize=(8.5, 6.5))
     x = np.arange(n_points)
 
-    for title, values, color in distributions:
-        ax.plot(x, values, marker='o', linewidth=2.8, markersize=4.8, color=color, label=title)
+    markers = ['o', 's', '^', 'D']
+    for (title, values, color), marker in zip(distributions, markers):
+        ax.plot(x, values, marker=marker, linewidth=2.8, markersize=4.8, color=color, label=title)
 
     ax.set_title('PRISM lambda point distributions', fontweight='bold', fontsize=28, pad=14)
     ax.set_xlabel('Point index', fontsize=20)

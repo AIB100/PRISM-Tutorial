@@ -106,6 +106,7 @@ mapping:
 lambda:
   strategy: decoupled
   distribution: nonlinear
+  quadratic_exponent: 2.0
   windows: 32
   coul_windows: 12
   vdw_windows: 20
@@ -189,8 +190,8 @@ Supported schedule distributions are:
 | Distribution | Meaning |
 |---|---|
 | `linear` | Uniform spacing, i.e. `linspace(0, 1, n_points)`. |
-| `nonlinear` | PRISM's default endpoint-dense reference schedule, based on a 32-point table. |
-| `quadratic` | Symmetric piecewise-quadratic spacing with denser endpoints and a sparser middle. |
+| `nonlinear` | PRISM's default empirical endpoint-dense reference schedule, based on a 32-point table. |
+| `quadratic` | An empirical symmetric power-law family controlled by `quadratic_exponent`; the figure compares the default `p=2` curve with a stronger `p=4` example. Use custom lambda arrays if you need exact control. |
 
 ### Interpreting charge redistribution
 

@@ -132,8 +132,20 @@ The following figure compares the three supported point distributions using 32 l
 | Distribution | Default? | Meaning |
 |---|---|---|
 | `linear` | no | Uniform spacing, i.e. `linspace(0, 1, n_points)`. |
-| `nonlinear` | yes | PRISM's reference endpoint-dense schedule: a fixed 32-point table, subsampled for fewer points and interpolated for more points. |
-| `quadratic` | no | Symmetric piecewise-quadratic spacing: $\lambda = 2x^2$ for $x \le 0.5$ and $\lambda = 1 - 2(1-x)^2$ for $x > 0.5$. |
+| `nonlinear` | yes | PRISM's empirical endpoint-dense reference schedule: a fixed 32-point table, subsampled for fewer points and interpolated for more points. |
+| `quadratic` | no | An empirical symmetric power-law family with tunable endpoint bias; use it when you want more or fewer points near $\lambda=0$ and $\lambda=1$ without writing explicit custom arrays. |
+
+For the `quadratic` family, PRISM uses the empirical symmetric piecewise definition
+
+$$
+\lambda(x)=
+\begin{cases}
+\dfrac{1}{2}(2x)^p, & x \le 0.5 \\
+1 - \dfrac{1}{2}\left(2(1-x)\right)^p, & x > 0.5
+\end{cases}
+$$
+
+where $p$ is the `quadratic_exponent`. This is an empirical schedule-shaping parameter rather than a theoretically unique optimum. The historical behavior corresponds to `quadratic_exponent: 2.0`; larger values make the endpoints denser and the middle sparser. If you need exact placement, use `custom_coul_lambdas` and `custom_vdw_lambdas` instead. The figure above overlays both the default `p=2` curve and a stronger `p=4` example.
 
 Current GROMACS references for lambda schedules and interaction-specific lambda control are the free-energy implementation and interaction chapters.[^gmx-free-energy-impl] [^gmx-free-energy-interactions]
 
@@ -152,29 +164,31 @@ prism protein.pdb ligand_ref.mol2 -o fep_output \
 
 PRISM then:
 
-1. maps the ligand pair
+1. maps the ligand pair and generates the mapping report
 2. builds the hybrid topology and `hybrid.gro`
 3. prepares the **bound** leg (protein + hybrid ligand)
 4. prepares the **unbound** leg (hybrid ligand in solvent), reusing the bound-leg box vectors so the two legs are scaffolded with the same box dimensions
-5. writes per-window MDPs
-6. writes a root-level `run_fep.sh`
-7. writes per-leg helpers such as `run_prod_standard.sh` and `run_prod_repex.sh`
-8. writes `fep_scaffold.json` (a scaffold manifest for inspection/debugging; the normal run path does not currently depend on reading it back)
 
-**Important:** the mapping report is generated automatically during scaffold construction, before any MD stage is launched.
+### Generated Execution Scripts and Configuration
 
-### Generated Window Workflow
+PRISM then generates the execution environment for both legs:
 
-For each leg, PRISM currently prepares:
+1. **writes per-leg helper scripts** - `run_prod_standard.sh` and `run_prod_repex.sh` for each leg
+2. **writes a root-level `run_fep.sh`** - creates the master execution script that drives the entire workflow
+3. **writes per-window MDPs** - generates lambda-specific MDP files for each window
+4. **writes `fep_scaffold.json`** - a scaffold manifest for inspection/debugging (the normal run path does not currently depend on reading it back)
 
-1. leg-level EM, NVT, NPT
-2. per-window `em_short`, `npt_short`, and production (`prod`)
+### Execution Workflow
+
+For each leg, PRISM prepares the following execution stages:
+
+1. **leg-level equilibration** - EM, NVT, NPT stages for each leg
+2. **per-window relaxation** - each lambda window receives its own short lambda-specific relaxation (`em_short`, `npt_short`) before production
+3. **production execution** - final production runs (`prod`) for each lambda window
 
 This means each lambda window is not launched directly from the leg-level NPT state; it first receives its own short lambda-specific relaxation.
 
 This is PRISM's generated workflow for robustness and restartability. It is an implementation choice, not a GROMACS-imposed universal FEP sequence.
-
-`fep_scaffold.json` is mainly a machine-readable manifest that records scaffold metadata (for example the receptor path, hybrid asset filenames, and lambda settings). It is useful for auditing/debugging, but the standard `run_fep.sh` runtime path does not currently require reading it.
 
 ### Generated MDP Behavior
 
@@ -397,6 +411,7 @@ mapping:
 lambda:
   strategy: decoupled
   distribution: nonlinear
+  quadratic_exponent: 2.0
   windows: 32
   coul_windows: 12
   vdw_windows: 20
@@ -475,6 +490,7 @@ The standard user-facing workflow currently supports the following `charge_recep
 |---|---:|---|
 | `strategy` | `decoupled` | Lambda scheduling mode: `decoupled`, `coupled`, or `custom`. |
 | `distribution` | `nonlinear` | Distribution along the schedule: `linear`, `nonlinear`, or `quadratic`. |
+| `quadratic_exponent` | `2.0` | Empirical endpoint-bias exponent used when `distribution: quadratic`; larger values give denser endpoints, while `custom_*_lambdas` remains the most explicit option. |
 | `windows` | `32` | Total window count for `coupled`, and target total for `decoupled`. |
 | `coul_windows` | `12` | Coulomb-stage window count in `decoupled` mode. |
 | `vdw_windows` | `20` | VDW-stage window count in `decoupled` mode. |
