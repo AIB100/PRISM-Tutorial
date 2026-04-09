@@ -275,10 +275,11 @@ Use this report to inspect:
 
 The mapping report contains:
 
-- a control bar for coloring mode, labels, charges, and export
-- two aligned ligand drawings for side-by-side comparison
-- a legend summarizing the FEP atom classes
-- an atom table for detailed inspection of the correspondence
+- a display toolbar for switching between **FEP Classification** and **Element** coloring, turning **charges** and **labels** on or off, resetting the view, exporting a PNG snapshot, jumping to the atom-details section, or printing the page
+- two independently pannable and zoomable ligand drawings for side-by-side comparison
+- a legend that lists the classification counts and the element color key
+- hover tooltips that report the atom name, element, charge, classification, and mapped partner atom
+- an atom-details table with atom names, elements, atom types, charges, and classifications for both ligands
 
 **First checkpoint:** if the mapping report looks chemically implausible, stop here and correct the transformation before running production windows.
 
@@ -322,7 +323,7 @@ GMX_PROLIG_FEP/
 Important points:
 
 - `run_fep.sh` is the main entry point for scaffold execution.
-- `run_prod_standard.sh` and `run_prod_repex.sh` are the leg-level production helpers used by `run_fep.sh`.
+- `run_prod_standard.sh` and `run_prod_repex.sh` are leg-level production helpers that `run_fep.sh` calls after leg-level equilibration.
 - `fep_scaffold.json` records the generated layout and key scaffold metadata.
 - `mdps/` and `window_*` hold the generated window-specific inputs and production workspaces.
 
@@ -330,7 +331,7 @@ For a fuller explanation of the scaffold layout, generated scripts, and per-wind
 
 ## Step 7: Choose an Execution Mode
 
-PRISM supports two production modes. The detailed execution model, resource behavior, and helper-script roles are documented in the [FEP Calculations guide](../user-guide/fep-calculations.md#production-modes).
+PRISM supports two production execution modes. The detailed execution model, resource behavior, and helper-script roles are documented in the [FEP Calculations guide](../user-guide/fep-calculations.md#production-execution-modes).
 
 ### Standard mode
 

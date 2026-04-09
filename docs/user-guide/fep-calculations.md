@@ -80,13 +80,13 @@ PRISM implements this through two complementary mechanisms:
 
 For detailed parameter descriptions, charge options, and allowed redistribution modes, see the [`mapping` section](#mapping-section) below.
 
-For the current GROMACS discussion of free-energy pathways, end states, and interaction handling, see the References section at the end of this page.
+For the current GROMACS discussion of free-energy pathways, end states, and interaction handling, see the GROMACS free-energy references.[^gmx-free-energy-impl] [^gmx-free-energy-interactions]
 
 ### Hybrid Topology
 
 The generated `hybrid.itp` stores both state A and state B parameters in a single molecule description. In GROMACS this means the **end states** are encoded in the topology, while the **path** between them is controlled by the lambda schedule in the generated MDP files.
 
-For the current GROMACS description of free-energy end states, lambda vectors, and interaction handling, see the References section at the end of this page. The `gmx grompp` manual also documents `-rb` for B-state reference coordinates.
+For the current GROMACS description of free-energy end states, lambda vectors, and interaction handling, see the GROMACS free-energy references.[^gmx-free-energy-impl] [^gmx-free-energy-interactions] The `gmx grompp` manual also documents `-rb` for B-state reference coordinates.[^gmx-grompp]
 
 ## Lambda Schedules
 
@@ -149,7 +149,7 @@ $$
 
 where $p$ is the `quadratic_exponent`. This is an empirical schedule-shaping parameter rather than a theoretically unique optimum. The historical behavior corresponds to `quadratic_exponent: 2.0`; larger values make the endpoints denser and the middle sparser. If you need exact placement, use `custom_coul_lambdas` and `custom_vdw_lambdas` instead. The figure above overlays both the default `p=2` curve and a stronger `p=4` example.
 
-Current GROMACS references for lambda schedules and interaction-specific lambda control are listed in the References section at the end of this page.
+Current GROMACS references for lambda schedules and interaction-specific lambda control are the GROMACS free-energy chapters.[^gmx-free-energy-impl] [^gmx-free-energy-interactions]
 
 ## Build Workflow
 
@@ -175,8 +175,8 @@ PRISM then:
 
 PRISM then generates the execution environment for both legs:
 
-1. **writes per-leg helper scripts** - `run_prod_standard.sh` launches the production windows as independent jobs for that leg, while `run_prod_repex.sh` launches lambda replica exchange for that leg using the generated window directories.
-2. **writes a root-level `run_fep.sh`** - this is the entry point most users run. It executes leg-level EM/NVT/NPT first, then dispatches production through either `run_prod_standard.sh` or `run_prod_repex.sh` according to `execution.mode`.
+1. **writes per-leg production helper scripts** - `run_prod_standard.sh` and `run_prod_repex.sh` are leg-level helpers. They are normally called by `run_fep.sh`, rather than used as the primary user entry point.
+2. **writes a root-level `run_fep.sh`** - this is the main entry point most users run. It acts as both a target dispatcher and a full workflow runner: it executes leg-level EM/NVT/NPT first, then dispatches production through either `run_prod_standard.sh` or `run_prod_repex.sh` according to `execution.mode`.
 3. **writes per-window MDPs** - PRISM generates lambda-specific `em_short`, `npt_short`, and `prod` MDPs so each window receives its own short relaxation before production.
 4. **writes `fep_scaffold.json`** - a scaffold manifest that records the generated layout and key metadata. It is useful if you need to inspect or troubleshoot the scaffold.
 
@@ -205,18 +205,20 @@ The generated per-window MDPs include:
 
 For the current GROMACS description of these free-energy controls, see the `.mdp` options and free-energy references listed at the end of this page.
 
-### Production Modes
+### Production Execution Modes
 
-`run_fep.sh` chooses the production helper according to `execution.mode` after leg-level EM, NVT, and NPT finish.
+`run_fep.sh` chooses the production helper according to `execution.mode` after leg-level EM, NVT, and NPT finish. In other words, the mode controls the production-stage backend, not the earlier leg-level equilibration stages.
 
 | Mode | What PRISM does | When to use it |
 |---|---|---|
-| `standard` | Launches each lambda window as an independent production job for that leg. `parallel_windows` controls how many windows run at once, and GPUs are assigned round-robin across active windows. | The default choice for straightforward throughput-oriented runs. |
-| `repex` | Launches the generated `window_*` directories in lambda replica-exchange mode with `gmx_mpi -multidir`. | Use when you want exchange between neighboring lambda states instead of fully independent windows. |
+| `standard` | Calls `run_prod_standard.sh`, which performs per-window lambda-specific relaxation (`em_short`, `npt_short`) and then launches each window independently. `parallel_windows` controls how many windows run at once, and GPUs are assigned round-robin across active windows. | The default choice for straightforward throughput-oriented runs. |
+| `repex` | Calls `run_prod_repex.sh`, which prepares the same per-window prerequisites and then launches lambda replica exchange with `gmx_mpi -multidir`. | Use when you want exchange between neighboring lambda states instead of fully independent windows. |
 
 ## Running FEP
 
 The generated `run_fep.sh` script accepts one or more **targets**. If you call it with no arguments, it defaults to `all`.
+
+In normal use, `run_fep.sh` is the script you run directly. The per-leg helper scripts (`run_prod_standard.sh` and `run_prod_repex.sh`) exist so that `run_fep.sh` can dispatch the correct production backend after leg-level equilibration has completed.
 
 ```bash
 cd fep_output/GMX_PROLIG_FEP
@@ -265,6 +267,9 @@ The following overrides are mainly useful when you need to adapt the generated s
 | `PRISM_MDRUN_UPDATE_MODE` | Overrides update placement for GPU runs (`gpu`, `cpu`, or `none`). |
 | `OMP_NUM_THREADS` | Generic OpenMP override; PRISM uses it unless `PRISM_OMP_THREADS` is set. |
 
+!!! note
+    You can run `run_prod_standard.sh` or `run_prod_repex.sh` directly if the leg has already completed its leg-level build/EM/NVT/NPT stages, but the normal workflow is to launch `run_fep.sh` and let it handle both equilibration and production dispatch.
+
 Typical examples:
 
 ```bash
@@ -301,10 +306,11 @@ Use this report to inspect:
 
 The report contains:
 
-- a control bar for coloring mode, charge display, atom labels, and export
-- two aligned ligand views for side-by-side inspection
-- a legend summarizing the FEP atom classes
-- an atom-detail table listing the correspondence for both ligands
+- a display toolbar that lets you switch between **FEP Classification** and **Element** coloring, toggle **charges** and **atom labels**, reset the view, export a PNG snapshot, jump to the atom-details section, or print the page
+- a legend that reports both the **classification counts** (`Common`, `Transformed A/B`, `Surrounding A/B`) and the **element color key** used in the alternate coloring mode
+- two independently pannable and zoomable ligand views for side-by-side inspection
+- hover tooltips that show the atom name, element, charge, classification, and the mapped partner atom in the opposite ligand
+- an atom-details section with summary counts and a paired table listing atom names, element types, atom types, charges, and classifications for both ligands
 
 <p align="center">
   <img src="/assets/fep/mapping_html_example.png" alt="Example PRISM mapping HTML report" width="100%">
@@ -312,7 +318,7 @@ The report contains:
 
 *Example mapping report generated during scaffold construction.*
 
-This is the first checkpoint in the workflow. If the mapping report looks chemically wrong, fix the transformation before running EM/NVT/NPT or production windows.
+This is the first checkpoint in the workflow. If the mapping report looks chemically wrong, fix the mapping parameters before running EM/NVT/NPT or production windows.
 
 ### Numerical Analysis Report (post-MD validation)
 
@@ -533,7 +539,7 @@ These are FEP-facing controls. The first two settings govern leg-level equilibra
 | `alpha` | `0.5` | Soft-core alpha parameter for alchemical nonbonded interactions. |
 | `sigma` | `0.3` | Soft-core sigma parameter in nm. |
 
-This section is FEP-specific and directly controls the alchemical soft-core treatment in the generated window MDPs. In GROMACS, these correspond to the `sc-alpha` and `sc-sigma` `.mdp` options, while the broader physical discussion of soft-core behavior appears in the free-energy interaction reference (including `sc-coul`). See the References section for the exact GROMACS links.
+This section is FEP-specific and directly controls the alchemical soft-core treatment in the generated window MDPs. In GROMACS, these correspond to the `sc-alpha` and `sc-sigma` `.mdp` options, while the broader physical discussion of soft-core behavior appears in the free-energy interaction reference (including `sc-coul`).[^gmx-mdp-options] [^gmx-mdp-sc-alpha] [^gmx-mdp-sc-sigma] [^gmx-free-energy-interactions]
 
 ### Nonbonded settings (`electrostatics` + `vdw`)
 
@@ -559,7 +565,7 @@ Like the nonbonded settings above, these are general MD output controls that PRI
 
 `trajectory_interval_ps`, `energy_interval_ps`, and `log_interval_ps` follow the same broad semantics as other PRISM MD workflows. `nstdhdl` is the FEP-specific addition in this section: PRISM passes it through to the generated window MDPs so you can control how often `dhdl.xvg` is written.
 
-PRISM currently keeps `separate-dhdl-file = yes`, so each production window writes a dedicated `dhdl.xvg` file for downstream analysis instead of storing those derivatives only inside `ener.edr`. See the References section for the corresponding GROMACS `.mdp` options.
+PRISM currently keeps `separate-dhdl-file = yes`, so each production window writes a dedicated `dhdl.xvg` file for downstream analysis instead of storing those derivatives only inside `ener.edr`.[^gmx-mdp-options] [^gmx-mdp-nstdhdl] [^gmx-mdp-separate-dhdl-file]
 
 ### `execution` section
 
@@ -612,19 +618,18 @@ PRISM currently keeps `separate-dhdl-file = yes`, so each production window writ
 
 ## References
 
-- [GROMACS current manual](https://manual.gromacs.org/current/)
-- [GROMACS current manual, *Molecular dynamics parameters (.mdp options)*](https://manual.gromacs.org/current/user-guide/mdp-options.html)
-- [GROMACS `.mdp` option: `init-lambda-state`](https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-init-lambda-state)
-- [GROMACS `.mdp` option: `calc-lambda-neighbors`](https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-calc-lambda-neighbors)
-- [GROMACS `.mdp` option: `sc-alpha`](https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-sc-alpha)
-- [GROMACS `.mdp` option: `sc-sigma`](https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-sc-sigma)
-- [GROMACS `.mdp` option: `nstdhdl`](https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-nstdhdl)
-- [GROMACS `.mdp` option: `separate-dhdl-file`](https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-separate-dhdl-file)
-- [GROMACS current reference manual, *Free energy implementation*](https://manual.gromacs.org/current/reference-manual/special/free-energy-implementation.html)
-- [GROMACS current reference manual, *Free-energy interactions*](https://manual.gromacs.org/current/reference-manual/functions/free-energy-interactions.html)
-- [GROMACS current online help, `gmx grompp`](https://manual.gromacs.org/current/onlinehelp/gmx-grompp.html)
-- [GROMACS 2026.0 release notes, *Performance improvements*: CUDA support for perturbed non-bonded free-energy kernels on GPU](https://manual.gromacs.org/documentation/2026.0/release-notes/2026/major/performance.html)
-- [GROMACS 2026.1 release notes: fixes for perturbed non-bonded interactions on GPU](https://manual.gromacs.org/current/release-notes/2026/2026.1.html)
+[^gmx-current]: [GROMACS current manual](https://manual.gromacs.org/current/).
+[^gmx-mdp-options]: [GROMACS current manual, *Molecular dynamics parameters (.mdp options)*](https://manual.gromacs.org/current/user-guide/mdp-options.html).
+[^gmx-mdp-init-lambda-state]: [GROMACS `.mdp` option: `init-lambda-state`](https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-init-lambda-state).
+[^gmx-mdp-calc-lambda-neighbors]: [GROMACS `.mdp` option: `calc-lambda-neighbors`](https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-calc-lambda-neighbors).
+[^gmx-mdp-sc-alpha]: [GROMACS `.mdp` option: `sc-alpha`](https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-sc-alpha).
+[^gmx-mdp-sc-sigma]: [GROMACS `.mdp` option: `sc-sigma`](https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-sc-sigma).
+[^gmx-mdp-nstdhdl]: [GROMACS `.mdp` option: `nstdhdl`](https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-nstdhdl).
+[^gmx-mdp-separate-dhdl-file]: [GROMACS `.mdp` option: `separate-dhdl-file`](https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-separate-dhdl-file).
+[^gmx-free-energy-impl]: [GROMACS current reference manual, *Free energy implementation*](https://manual.gromacs.org/current/reference-manual/special/free-energy-implementation.html).
+[^gmx-free-energy-interactions]: [GROMACS current reference manual, *Free-energy interactions*](https://manual.gromacs.org/current/reference-manual/functions/free-energy-interactions.html).
+[^gmx-grompp]: [GROMACS current online help, `gmx grompp`](https://manual.gromacs.org/current/onlinehelp/gmx-grompp.html).
+[^gmx-2026-1-release-notes]: [GROMACS 2026.1 release notes: fixes for perturbed non-bonded interactions on GPU](https://manual.gromacs.org/current/release-notes/2026/2026.1.html).
 
 ## See Also
 
