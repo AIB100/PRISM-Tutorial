@@ -173,6 +173,7 @@ nav:
     - Builder API: api/builder.md
     - Analysis API: api/analysis.md
     - PMF API: api/pmf.md
+    - FEP API: api/fep.md
     - Utilities: api/utilities.md
   - About:
     - About PRISM: about/index.md

@@ -14,6 +14,7 @@ Comprehensive API documentation for all PRISM modules.
 
 ### Advanced Calculations
 - [PMF Module](pmf.md) - PMF alignment and pulling direction optimization
+- [FEP Module](fep.md) - Free Energy Perturbation calculations and analysis
 - [Utilities](utilities.md) - Helper functions and environment detection
 
 ---
@@ -59,6 +60,7 @@ analyzer.analyze_all()
 | [builder](builder.md) | System construction | PRISMBuilder, PRISMSystem |
 | [analysis](analysis.md) | Trajectory analysis | TrajAnalysis, HTMLGenerator |
 | [pmf](pmf.md) | PMF alignment | PMFAligner |
+| [fep](fep.md) | FEP calculations | FEPScaffoldBuilder, DistanceAtomMapper, FEPAnalyzer |
 | [utilities](utilities.md) | Helper functions | ConfigurationManager, GromacsEnvironment |
 
 ---
