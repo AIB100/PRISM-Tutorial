@@ -313,8 +313,8 @@ Current supported CLI entry points are:
 
 ```bash
 prism --fep-analyze \
-  --bound-dir fep_output/GMX_PROLIG_FEP/bound/repeat1 \
-  --unbound-dir fep_output/GMX_PROLIG_FEP/unbound/repeat1 \
+  --bound-dir fep_output/GMX_PROLIG_FEP/bound \
+  --unbound-dir fep_output/GMX_PROLIG_FEP/unbound \
   --estimator MBAR BAR TI \
   --bootstrap-n-jobs 8 \
   --output fep_results.html \
@@ -325,8 +325,8 @@ Equivalent module entry point:
 
 ```bash
 python -m prism.fep.analysis.cli \
-  --bound-dir fep_output/GMX_PROLIG_FEP/bound/repeat1 \
-  --unbound-dir fep_output/GMX_PROLIG_FEP/unbound/repeat1 \
+  --bound-dir fep_output/GMX_PROLIG_FEP/bound \
+  --unbound-dir fep_output/GMX_PROLIG_FEP/unbound \
   --estimator MBAR BAR TI \
   --bootstrap-n-jobs 8 \
   --output fep_results.html
@@ -334,8 +334,9 @@ python -m prism.fep.analysis.cli \
 
 #### Arguments
 
-- `--bound-dir`: repeat directory containing `window_*`
-- `--unbound-dir`: repeat directory containing `window_*`
+- `--bound-dir`: recommended form is the leg directory (`.../bound`); PRISM auto-discovers all `repeat*`
+- `--unbound-dir`: recommended form is the leg directory (`.../unbound`); PRISM auto-discovers all `repeat*`
+- when leg directories are used, bound and unbound must resolve to the same number of repeats
 - `--estimator`: one or more of `BAR`, `MBAR`, `TI`
 - `--all-estimators`: run all estimators
 - `--bootstrap-n-jobs`: bootstrap worker count

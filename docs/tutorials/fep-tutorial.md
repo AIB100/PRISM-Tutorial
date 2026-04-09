@@ -17,6 +17,16 @@ You will learn how to:
 - choose between `standard` and `repex` execution
 - analyze completed window data with BAR, MBAR, and TI
 
+## Recommended Path for a First FEP Run
+
+If this is your first PRISM FEP calculation, keep the defaults unless you already know why you need something different:
+
+1. use the packaged `42-38` example inputs and configs
+2. build the scaffold
+3. run `run_fep.sh all`
+4. inspect `mapping.html` before launching long production
+5. analyze the completed `bound` and `unbound` legs with `prism --fep-analyze`
+
 ## Prerequisites
 
 - completed [Basic Tutorial](basic-tutorial.md) or equivalent PRISM familiarity
@@ -38,7 +48,7 @@ This pair is suitable for FEP because the chemical change is local and the ligan
 
 ## Step 1: Download the Example Files
 
-This tutorial now mirrors the real PRISM unit-test example layout for the **42-38** HIF-2α FEP system. The packaged files follow the same `input/` and `configs/` structure used under `tests/gxf/FEP/unit_test/42-38/`.
+This tutorial uses a packaged **42-38** HIF-2α example with separate `input/` and `configs/` folders.
 
 The ligands are provided as **MOL2** files because that preserves bond order and atom typing information more reliably than plain ligand PDB files. The receptor remains a PDB file.
 
@@ -75,15 +85,13 @@ Verify the files:
 find input configs -maxdepth 1 -type f | sort
 ```
 
-This tutorial uses the same file naming convention as the real `tests/gxf/FEP/unit_test/42-38/` example:
+The packaged example uses:
 
 - **input/receptor.pdb** for the receptor
 - **input/42.mol2** for ligand 42 (reference/state A)
 - **input/38.mol2** for ligand 38 (mutant/state B)
 - **configs/fep_gaff2.yaml** for FEP-specific settings
 - **configs/config_gaff2.yaml** for the general PRISM build configuration
-
-If you want to mirror the legacy GAFF2 Python unit test even more closely, note that the test fixture also contains `configs/case_gaff2.yaml`. This tutorial uses `config_gaff2.yaml` instead because it matches the packaged example file names directly (`receptor.pdb`, `42`, `38`) and is easier to read.
 
 ## Step 2: Review the FEP Configuration
 
@@ -131,20 +139,20 @@ execution:
 replicas: 3
 ```
 
-Key points:
+Key points for a first run:
 
 | Item | Current behavior |
 |---|---|
 | `dist_cutoff: 0.6` | Means **0.6 nm**, not 0.6 Å. |
-| `strategy: decoupled` | This is the default schedule mode in PRISM. |
+| `strategy: decoupled` | This is the recommended default for a first run. |
 | Default windows | `32` total windows split as `12` Coulomb + `20` VDW windows. |
 | CLI vs YAML | Use an explicit FEP YAML when you care about exact schedules. |
 | File roles | `fep_gaff2.yaml` controls the FEP schedule; `config_gaff2.yaml` supplies the general build settings. |
-| Repeat counts | FEP repeat directories come from top-level `replicas` in `fep_gaff2.yaml` (here `3`). The `simulation.repeats` field in `config_gaff2.yaml` is legacy/general metadata and does **not** determine FEP repeat directory count. |
+| Repeat counts | FEP repeat directories come from top-level `replicas` in `fep_gaff2.yaml` (here `3`). |
 
 ## Step 3: Understand What the Lambda Windows Actually Do
 
-This is the most important conceptual point.
+For a first run, you usually do **not** need to change the default `decoupled` + `nonlinear` schedule. This step explains what PRISM is doing so the generated windows are easier to interpret. For the full parameter reference, see the [FEP User Guide](../user-guide/fep-calculations.md#lambda-schedules).
 
 In PRISM's default **decoupled** schedule:
 
@@ -185,7 +193,9 @@ The following figure visualizes the three lambda schedule strategies:
 - **Coupled**: Both red and blue lines move together from 0 to 1 across all windows
 - **Custom**: A user-defined example where you control exactly when each term transforms
 
-Supported schedule distributions are:
+For most users, the default `decoupled` + `nonlinear` schedule is the right starting point; only tune these settings if you have a specific reason to reshape the lambda path.
+
+Supported schedule distributions are shown below. For a first run, keep the default `nonlinear` setting unless you have a specific reason to reshape the lambda path:
 
 <p align="center">
   <img src="/assets/fep/lambda_distributions.png" alt="PRISM lambda point distributions" width="100%">
@@ -193,16 +203,16 @@ Supported schedule distributions are:
 
 | Distribution | Meaning |
 |---|---|
-| `linear` | Uniform spacing, i.e. `linspace(0, 1, n_points)`. |
-| `nonlinear` | PRISM's default empirical endpoint-dense reference schedule, based on a 32-point table. |
-| `quadratic` | An empirical symmetric power-law family controlled by `quadratic_exponent`; the figure compares the default `p=2` curve with a stronger `p=4` example. Use custom lambda arrays if you need exact control. |
+| `linear` | Uniform spacing. |
+| `nonlinear` | PRISM's default empirical endpoint-dense reference schedule. |
+| `quadratic` | Empirical power-law endpoint bias controlled by `quadratic_exponent`. Use custom lambda arrays if you need exact control. |
 
 ### Interpreting charge redistribution
 
-**The core principle**: In practice, smaller and more local perturbations usually improve phase-space overlap and make FEP easier to converge. By keeping electrostatic properties consistent in the common (shared) regions of the ligands, we often:
+For a first run, you usually do not need to change the default charge settings. The main idea is simply to keep the perturbation local and easier to sample. By keeping electrostatic properties consistent in the common (shared) regions of the ligands, we often:
 
 - **Reduce the magnitude of the perturbation** → better convergence
-- **Lower statistical uncertainty** → more reliable ΔG estimates
+- **Lower statistical uncertainty** → more reliable $\Delta G$ estimates
 - **Maintain physical consistency** → common regions behave similarly in both states
 
 The following figure visualizes the charge redistribution strategies:
@@ -235,7 +245,7 @@ The scaffold is built in a fixed order: PRISM prepares the bound leg first, then
 
 **Important:** the scaffold step already creates `common/hybrid/mapping.html`, so you can inspect the mapping before launching any MD.
 
-## Step 5: Inspect Atom Mapping and Hybrid Files
+## Step 5: Inspect Chemical Correctness
 
 At this stage, PRISM has already generated the mapping report.
 
@@ -253,18 +263,13 @@ firefox amber14sb_OL15-mut_gaff2/GMX_PROLIG_FEP/common/hybrid/mapping.html
   <img src="/assets/fep/mapping_html_example.png" alt="Example PRISM mapping HTML report" width="100%">
 </p>
 
-Inspect the scaffold summary:
-
-```bash
-python -m json.tool amber14sb_OL15-mut_gaff2/GMX_PROLIG_FEP/fep_scaffold.json | less
-```
-
 Check that:
 
 1. the transformed region is local and chemically sensible
 2. the common scaffold matches your expectation
 3. there are no obviously incorrect long-range swaps
-4. the manifest contains a non-empty `mapping` section
+
+If you need a machine-readable summary of the scaffold, you can also inspect `fep_scaffold.json`, but the mapping report is the main checkpoint at this stage.
 
 Use this report to inspect:
 
@@ -283,7 +288,7 @@ The mapping report contains:
 
 **First checkpoint:** if the mapping report looks chemically implausible, stop here and correct the transformation before running production windows.
 
-## Step 6: Inspect the Scaffold Layout
+## Step 6: Inspect the Generated Layout and Entry Points
 
 ```bash
 cd amber14sb_OL15-mut_gaff2/GMX_PROLIG_FEP
@@ -327,6 +332,8 @@ Important points:
 - `fep_scaffold.json` records the generated layout and key scaffold metadata.
 - `mdps/` and `window_*` hold the generated window-specific inputs and production workspaces.
 
+Step 5 answers **is the chemistry plausible?** Step 6 answers **do I understand what was generated and what to run next?**
+
 For a fuller explanation of the scaffold layout, generated scripts, and per-window relaxation stages, see the [FEP Calculations guide](../user-guide/fep-calculations.md#generated-execution-scripts-and-configuration).
 
 ## Step 7: Choose an Execution Mode
@@ -355,6 +362,8 @@ Behavior:
 
 ### Replica-exchange mode
 
+Treat this as an advanced option. For a first tutorial run, stay with `standard`.
+
 ```yaml
 execution:
   mode: repex
@@ -373,17 +382,19 @@ Summary:
 
 ## Step 8: Run Full Production
 
+For a first tutorial run, keep `execution.mode: standard` and launch `bash run_fep.sh all` unless you specifically want to run only one leg or one replica.
+
 After the scaffold and runtime configuration look correct:
+
+```bash
+bash run_fep.sh all
+```
+
+If you need to run the legs separately:
 
 ```bash
 bash run_fep.sh bound
 bash run_fep.sh unbound
-```
-
-Or both legs at once:
-
-```bash
-bash run_fep.sh all
 ```
 
 `run_fep.sh` also accepts replica-specific targets such as `bound1`, `unbound2`, and `bound1-3`. For the full target syntax and runtime environment overrides (`PRISM_FEP_MODE`, `PRISM_NUM_GPUS`, `PRISM_PARALLEL_WINDOWS`, `PRISM_OMP_THREADS`, `PRISM_TOTAL_CPUS`, and `PRISM_GPU_ID`), see the [Running FEP section](../user-guide/fep-calculations.md#running-fep).
@@ -397,6 +408,12 @@ bash run_fep.sh bound1-3
 ```
 
 ## Step 9: Monitor Progress
+
+If everything is working normally, you should see:
+
+- `build/` logs completing for the leg-level EM/NVT/NPT stages
+- `window_*` directories filling with `prod.*` files and `dhdl.xvg`
+- analysis-ready bound and unbound legs once the production windows finish
 
 Examples:
 
@@ -415,6 +432,12 @@ What to check:
 | Window outputs | Each `window_*` directory produces `prod.*` and `dhdl.xvg` (the `dhdl.xvg` write frequency is controlled by `output.nstdhdl`, default `100` MD steps). |
 | Logs | Contain `Finished mdrun on rank 0`. |
 
+### How to resume after interruption
+
+`run_fep.sh` is designed to be rerunnable. If a leg was interrupted, rerun the same command and PRISM will reuse completed leg-level stages and skip production windows that already have `prod.gro`.
+
+If you need to force a single window to rerun, remove the failed production outputs in that `window_*` directory and rerun the same leg command.
+
 ## Step 10: Analyze Completed Windows
 
 After production has created `dhdl.xvg` files, run the post-processing step:
@@ -430,13 +453,15 @@ prism --fep-analyze \
 ```
 
 !!! note
-    `prism --fep-analyze` accepts either a single repeat directory or a leg directory containing `repeat*` subdirectories. If you pass `.../bound` and `.../unbound`, the CLI auto-discovers all repeats and performs aggregated analysis across them.
+    `prism --fep-analyze` accepts either a single repeat directory or a leg directory containing `repeat*` subdirectories. If you pass `.../bound` and `.../unbound`, the CLI auto-discovers all repeats and performs aggregated analysis across them. In practice, the bound and unbound legs should contain the same repeat set before you aggregate them.
+
+For a first tutorial run, treat **MBAR** as the primary estimator and use **BAR** and **TI** as consistency checks.
 
 PRISM supports three standard estimators:
 
 | Estimator | What it does | When to use |
 |---|---|---|
-| **TI** (Thermodynamic Integration) | Integrates ∂H/∂λ across windows | Smooth transformations with well-sampled gradients |
+| **TI** (Thermodynamic Integration) | Integrates $\partial H / \partial \lambda$ across windows | Smooth transformations with well-sampled gradients |
 | **BAR** (Bennett Acceptance Ratio) | Compares neighboring window pairs | Standard FEP with adequate sampling |
 | **MBAR** (Multistate BAR) | Reweights all data simultaneously | Most efficient; provides overlap matrix for quality checks |
 
@@ -450,17 +475,22 @@ The numerical analysis workflow is:
    \Delta G_{\mathrm{bind}} = \Delta G_{\mathrm{unbound}} - \Delta G_{\mathrm{bound}}
    $$
 
-4. generate an HTML report with overlap matrices, convergence plots, and estimator summaries
+4. generate an HTML report with the analysis panels available for that run (for example MBAR overlap, convergence, repeat summaries, and estimator comparison when applicable)
 
 ## Step 11: Validate the Numerical Report
 
-Open the generated report:
+For a first pass through the report, use this checklist:
 
-```bash
-firefox fep_results.html
-```
+1. confirm that each analyzed window produced `dhdl.xvg`
+2. check MBAR overlap for obvious gaps between neighboring windows
+3. check convergence for late-time drift
+4. compare BAR / MBAR / TI and see whether they tell the same story within uncertainty
+
+Open `fep_results.html` in a browser.
 
 This file is written by the analysis step, either to the current working directory or to the path specified with `--output`.
+
+Not every report shows every panel. In particular, the overlap matrix is MBAR-only, estimator comparison is most informative when you request more than one estimator, and repeat summaries appear only when multiple `repeat*` pairs are analyzed together.
 
 <p align="center">
   <img src="/assets/fep/analysis_html_example.png" alt="Example PRISM FEP analysis HTML report" width="100%">
@@ -468,23 +498,32 @@ This file is written by the analysis step, either to the current working directo
 
 Use the numerical report to check:
 
-| Metric | What to look for |
-|---|---|
-| Overlap matrix | Neighboring windows overlap adequately. |
-| Estimator agreement | BAR, MBAR, and TI are broadly consistent. |
-| Convergence | Estimates stabilize as more data are accumulated. |
-| Uncertainty | Bootstrap error bars are reasonable for the sampling length. |
+| Panel | When it appears | What to look for |
+|---|---|---|
+| Overlap matrix | MBAR analyses only. | Neighboring windows overlap adequately, with the strongest values near the diagonal and no obvious gaps between adjacent states. |
+| Estimator agreement | When you request more than one estimator. | BAR, MBAR, and TI are broadly consistent within uncertainty. |
+| Convergence | When time-convergence analysis succeeds. | Estimates stabilize as more data are accumulated; late-time curves should flatten rather than keep drifting. |
+| Uncertainty | When bootstrap resampling is enabled and produces usable samples. | Bootstrap error bars are reasonable for the sampling length and small enough for the decision you care about. |
+| Repeat summary | When you analyze more than one `repeat*` pair together. | Repeat-level results tell a similar story and no single repeat is an obvious outlier. |
+
+Interpret these panels together:
+
+- **Good MBAR overlap + stable convergence + consistent estimators** usually means the result is trustworthy when those panels are present.
+- **Poor overlap** often means your lambda schedule is too sparse or the perturbation is too large.
+- **Late-time drift in convergence plots** usually means you still need more sampling.
+- **Estimator disagreement** is a warning sign that the dataset may be undersampled or poorly overlapped.
+- **Repeat-to-repeat disagreement** suggests that sampling noise may still dominate the final estimate.
 
 Use this report to decide whether:
 
-- the reported ΔΔG is supported by adequate window overlap
+- the reported $\Delta\Delta G$ is supported by adequate window overlap
 - the estimate is stable rather than still drifting
 - the estimator choice materially changes the conclusion
 - additional sampling or a revised lambda schedule is needed
 
-**Result-validation checkpoint:** do not interpret ΔΔG without checking overlap, convergence, and estimator agreement.
+**Result-validation checkpoint:** do not interpret $\Delta\Delta G$ without checking overlap, convergence, and estimator agreement.
 
-## Common Questions
+## Practical Follow-up Questions
 
 ### Why are there so many window-level MDP files?
 
@@ -498,7 +537,7 @@ Not if you want reproducibility. For serious FEP work, define `lambda.strategy`,
 
 FEP accuracy depends on minimizing the perturbation between ligands. If common (shared) atoms have very different charges in the two states, the alchemical transformation becomes larger and harder to converge:
 
-- **Larger perturbation** → poorer convergence → higher uncertainty in ΔG
+- **Larger perturbation** → poorer convergence → higher uncertainty in $\Delta G$
 - **Smaller perturbation** → better convergence → more reliable results
 
 By using `charge_common: mean` and `charge_reception: surround`, PRISM keeps electrostatic properties consistent in shared regions, confining the major changes to the actual mutation site.[^gmx-free-energy-impl] [^gmx-free-energy-interactions]
@@ -535,16 +574,28 @@ These are the most important knobs:
 - verify protonation and tautomer states before building
 - inspect `mapping.html` first
 
-### Short run crashes during EM/NVT/NPT
+### EM/NVT/NPT fails early
 
 - inspect `common/hybrid/hybrid.itp` and `common/hybrid/mapping.html`
 - inspect `build/em.log`, `build/nvt.log`, and `build/npt.log`
-- rerun a short validation run before attempting long production if you have changed the scaffold or runtime settings substantially
+- if the failure only appears after you changed the scaffold or runtime settings, rebuild or rerun before launching long production
 
-### Analysis CLI finds no windows
+### GPU memory is insufficient
+
+- reduce `execution.parallel_windows`
+- reduce `PRISM_NUM_GPUS` if you are oversubscribing devices
+- rerun the same leg after adjusting the runtime resource overrides
+
+### Analysis CLI finds no windows or no `dhdl.xvg`
 
 - pass either a repeat directory or a leg directory containing `repeat*`
-- confirm that `window_*` directories exist and contain production outputs
+- confirm that the bound and unbound legs contain the same repeat set before aggregated analysis
+- confirm that each finished `window_*` directory contains `dhdl.xvg`
+
+### How do I restart only failed work?
+
+- rerun the same `run_fep.sh` command to resume a leg
+- to force a single window to rerun, remove the failed `prod.*` outputs in that `window_*` directory and launch the same leg again
 
 ## Summary
 
@@ -558,10 +609,9 @@ You have now:
 
 ## Additional Resources
 
-- [FEP User Guide](../user-guide/fep-calculations.md)
-- [Configuration](../user-guide/configuration.md)
-- [Analysis Tools](../user-guide/analysis-tools.md)
-- [Test Systems](https://github.com/AIB001/PRISM/tree/main/tests/gxf/FEP/unit_test)
+- [FEP User Guide](../user-guide/fep-calculations.md) — detailed reference for FEP configuration, scaffold structure, execution, and analysis.
+- [Configuration](../user-guide/configuration.md) — broader PRISM configuration reference beyond the FEP-specific settings used here.
+- [Analysis Tools](../user-guide/analysis-tools.md) — post-processing guidance for trajectories, energies, convergence, and related analysis outputs.
 
 ## References
 

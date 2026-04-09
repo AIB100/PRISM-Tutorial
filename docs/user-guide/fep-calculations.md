@@ -1,6 +1,6 @@
 # FEP Calculations
 
-PRISM automates **Free Energy Perturbation (FEP)** calculations for relative binding free energies between similar ligands using GROMACS hybrid topologies.
+PRISM automates the setup, execution, and analysis of **Free Energy Perturbation (FEP)** calculations for relative binding free energies between similar ligands using GROMACS hybrid topologies.
 
 !!! example "Quick Start"
     ```bash
@@ -12,9 +12,29 @@ PRISM automates **Free Energy Perturbation (FEP)** calculations for relative bin
       --fep-config fep.yaml
     ```
 
+    This command builds the FEP scaffold. The actual MD workflow is usually started afterwards from the generated FEP directory with `run_fep.sh all`.
+
 If you want the full YAML parameter reference, jump directly to [FEP YAML Reference](#fep-yaml-reference).
 
 For a step-by-step worked example, see the [FEP Tutorial](../tutorials/fep-tutorial.md).
+
+## Recommended First Run
+
+For most users, the shortest reliable path is:
+
+1. prepare a receptor plus a reference/mutant ligand pair and a minimal `fep.yaml`
+2. generate the scaffold with `prism ... --fep --fep-config fep.yaml`
+3. run `run_fep.sh all` from the generated FEP directory
+4. inspect `common/hybrid/mapping.html` to confirm the perturbation is chemically sensible
+5. run `prism --fep-analyze` on the completed `bound` and `unbound` legs to validate the numerical result
+
+The rest of this page explains what PRISM generates, which defaults it uses, and which advanced options you may want to change later.
+
+### Practical reminders
+
+- inspect `common/hybrid/mapping.html` before committing to long production runs
+- keep the default lambda schedule unless you have a concrete reason to reshape it
+- prefer analyzing all matching `repeat*` pairs together rather than a single repeat when resources allow
 
 ## Overview
 
@@ -60,7 +80,7 @@ PRISM classifies atoms as:
 When atoms are classified as **common** (shared between both ligands), keeping their electrostatic properties as consistent as possible usually reduces the magnitude of the alchemical transformation. This often leads to:
 
 - **Better convergence** — fewer lambda windows needed for adequate overlap
-- **Lower variance** — smaller statistical uncertainty in the final ΔG
+- **Lower variance** — smaller statistical uncertainty in the final $\Delta G$
 - **Improved physical realism** — common regions should behave consistently in both states
 
 PRISM implements this through two complementary mechanisms:
@@ -90,7 +110,7 @@ For the current GROMACS description of free-energy end states, lambda vectors, a
 
 ## Lambda Schedules
 
-PRISM supports three lambda schedule strategies. The exact keys and defaults are listed in the [`lambda` section](#lambda-section) of the FEP YAML Reference.
+For most ligand series, start with the default `decoupled` + `nonlinear` schedule. Only change this section if you have a specific reason to tune window placement or coupling order. The exact keys and defaults are listed in the [`lambda` section](#lambda-section) of the FEP YAML Reference.
 
 PRISM-generated MDPs write separate lambda vectors for:
 
@@ -320,14 +340,21 @@ The report contains:
 
 This is the first checkpoint in the workflow. If the mapping report looks chemically wrong, fix the mapping parameters before running EM/NVT/NPT or production windows.
 
+A quick checklist for `mapping.html`:
+
+- the common core should match your chemical intuition for the shared scaffold
+- the transformed region should be localized to the actual mutation site
+- surrounding atoms should look like a narrow boundary region, not most of the ligand
+- if these classes look implausible, revisit the mapping parameters before launching MD
+
 ### Numerical Analysis Report (post-MD validation)
 
 After production has generated `dhdl.xvg` files for the windows, run `prism --fep-analyze` to build the numerical free-energy report.
 
 ```bash
 prism --fep-analyze \
-  --bound-dir fep_output/GMX_PROLIG_FEP/bound/repeat1 \
-  --unbound-dir fep_output/GMX_PROLIG_FEP/unbound/repeat1 \
+  --bound-dir fep_output/GMX_PROLIG_FEP/bound \
+  --unbound-dir fep_output/GMX_PROLIG_FEP/unbound \
   --estimator MBAR BAR TI \
   --bootstrap-n-jobs 8 \
   --output fep_results.html \
@@ -335,33 +362,45 @@ prism --fep-analyze \
 ```
 
 !!! note
-    `prism --fep-analyze` accepts either a single repeat directory (`bound/repeat1`, `unbound/repeat1`) or a leg directory containing `repeat*` subdirectories. When given the leg directory, the CLI auto-discovers all repeats and performs aggregated analysis across them.
+    The recommended input form is to pass the leg directories themselves (`.../bound` and `.../unbound`). PRISM then auto-discovers all `repeat*` subdirectories under each leg and performs aggregated analysis across them. The CLI also checks that the number of bound and unbound repeats matches before analysis starts. You can still pass a single repeat directory (`bound/repeat1`, `unbound/repeat1`) if you explicitly want to analyze only one repeat.
 
 PRISM supports three standard estimators:
 
 | Estimator | Full Name | Description | Use Case |
 |---|---|---|---|
-| **TI** | Thermodynamic Integration | Numerical integration of ∂H/∂λ across windows | Good for smooth transformations with well-sampled gradients |
+| **TI** | Thermodynamic Integration | Numerical integration of $\partial H / \partial \lambda$ across windows | Good for smooth transformations with well-sampled gradients |
 | **BAR** | Bennett Acceptance Ratio | Optimal overlap between neighboring windows | Robust for standard FEP with adequate sampling |
 | **MBAR** | Multistate BAR | Uses all data simultaneously with reweighting | Most efficient; provides overlap matrix for quality control |
 
 The analysis workflow is:
 
 1. read `dhdl.xvg` files from each `window_*` directory
-2. compute ΔG for the bound leg and the unbound leg
-3. report binding free energy as `ΔG_bind = ΔG_unbound - ΔG_bound`
+2. compute $\Delta G$ for the bound leg and the unbound leg
+3. report binding free energy as $\Delta G_{\mathrm{bind}} = \Delta G_{\mathrm{unbound}} - \Delta G_{\mathrm{bound}}$
 4. estimate uncertainty by bootstrap resampling when requested
-5. generate an HTML report with overlap matrices, convergence plots, and estimator summaries
+5. generate an HTML report
 
 The generated HTML file is often named `fep_results.html`, `fep_analysis_report.html`, or `fep_multi_estimator_report.html`, depending on your command and output naming.
 
 Use the numerical report to inspect:
 
-- ΔG and ΔΔG summary values
-- overlap matrices between neighboring windows
+- $\Delta G$ and $\Delta\Delta G$ summary values
+- overlap matrices between neighboring windows when you analyze with **MBAR**
 - convergence behavior over time
 - repeat statistics when multiple repeats are analyzed together
-- agreement or disagreement between TI, BAR, and MBAR
+- agreement or disagreement between TI, BAR, and MBAR when you request multiple estimators
+
+Not every report shows every panel. In particular, the overlap matrix is MBAR-only, repeat summaries appear only when multiple repeats are aggregated, and estimator comparison is most useful when you request more than one estimator.
+
+How to read the main analysis panels:
+
+| Panel | When it appears | What it is for | What usually looks healthy | What is concerning |
+|---|---|---|---|---|
+| Repeat summary | When multiple repeats are analyzed together. | Compares replicate legs or aggregated repeat statistics. | Repeats tell a similar story and no single repeat is an obvious outlier. | One repeat dominates the average or repeats disagree more than their uncertainties suggest. |
+| Estimator summary | When you request multiple estimators, such as TI + BAR + MBAR. | Compares different estimators on the same dataset. | TI/BAR/MBAR are broadly consistent within uncertainty. | One estimator strongly disagrees with the others or only one estimator appears stable. |
+| Overlap matrix | MBAR analyses only. | Shows whether neighboring lambda windows sample sufficiently similar states for reweighting. | Strongest values cluster near the diagonal and neighboring windows show visible overlap. | Very weak neighboring overlap, isolated windows, or obvious gaps between adjacent states. |
+| Convergence plots | Whenever time-convergence analysis succeeds. | Show how the estimated free energy changes as more trajectory data are included. | Curves flatten with time and late-time estimates stay close to each other. | Large late-time drift, strong oscillation, or different trajectory fractions giving very different answers. |
+| Uncertainty / bootstrap | When bootstrap resampling is enabled and produces usable samples. | Quantifies statistical uncertainty from resampling. | Error bars are small enough for the decision you want to make and are compatible with repeat-to-repeat variation. | Very large intervals, unstable bootstrap behavior, or uncertainty that is comparable to the reported signal. |
 
 <p align="center">
   <img src="/assets/fep/analysis_html_example.png" alt="Example PRISM FEP analysis HTML report" width="100%">
@@ -374,7 +413,7 @@ Use the numerical report to inspect:
 
 ## FEP YAML Reference
 
-If you started from the workflow sections above and now want the exact configuration keys, use the following reference.
+If you started from the workflow sections above and now want the exact configuration keys, use the following reference. This section is intentionally more detailed than the workflow overview: it combines core options that many users may touch with advanced or implementation-level notes that are useful when you need tighter control.
 
 ### Configuration Map
 
@@ -414,6 +453,19 @@ block-beta
     style J fill:#f8f9fb,stroke:#7a869a,stroke-width:1px,color:#111
 ```
 
+Text fallback for the same structure:
+
+```text
+fep.yaml
+|- mapping
+|- lambda
+|- simulation
+|- electrostatics
+|- vdw
+|- output
+|- execution
+`- replicas
+```
 
 ### Example `fep.yaml`
 
@@ -602,12 +654,14 @@ PRISM currently keeps `separate-dhdl-file = yes`, so each production window writ
 
 ### Analysis finds no windows
 
-- pass either a single repeat directory or a leg directory containing `repeat*` subdirectories
+- pass the leg directories (`.../bound` and `.../unbound`) unless you intentionally want to analyze only one repeat
+- if you pass leg directories, PRISM expects the number of `repeat*` subdirectories under `bound` and `unbound` to match
 - confirm that each `window_*` directory contains production outputs such as `prod.*` and `dhdl.xvg`
 
 ### Practical Notes
 
 - Prefer an explicit `fep.yaml` for reproducible lambda schedules.
+- When resources allow, analyze multiple `repeat*` pairs together instead of relying on a single repeat.
 - The CLI still exposes `--lambda-windows`, but it is a simplified override. If you care about exact schedules, define the lambda section explicitly in YAML.
 - `execution.mode`, `parallel_windows`, `num_gpus`, `total_cpus`, and `omp_threads` only affect generated run scripts; they do not change the topology or lambda schedule.
 - If you use `custom` lambda schedules, validate the arrays carefully before large production campaigns.
