@@ -148,11 +148,14 @@ This is the most important conceptual point.
 In PRISM's default **decoupled** schedule:
 
 1. **Coulomb stage**
-   - `coul-lambdas` move from `0 -> 1`
-   - `vdw-lambdas` stay at `0`
+
+    - `coul-lambdas` move from `0 -> 1`
+    - `vdw-lambdas` stay at `0`
+
 2. **VDW stage**
-   - `coul-lambdas` stay at `1`
-   - `vdw-lambdas` move from `0 -> 1`
+
+    - `coul-lambdas` stay at `1`
+    - `vdw-lambdas` move from `0 -> 1`
 
 At the same time:
 
@@ -317,38 +320,16 @@ GMX_PROLIG_FEP/
 
 Important points:
 
-- `run_fep.sh` drives leg-level EM, NVT, NPT, then production windows
-- `fep_scaffold.json` is a scaffold manifest for inspection/debugging; the normal runtime path usually does not read it back
-- `mdps/` contains leg-level and window-level MDP files
-- `window_*` directories are the per-window production workspaces
-- each window gets its own short lambda-specific relaxation before production
+- `run_fep.sh` is the main entry point for scaffold execution.
+- `run_prod_standard.sh` and `run_prod_repex.sh` are the leg-level production helpers used by `run_fep.sh`.
+- `fep_scaffold.json` is mainly for inspection and debugging.
+- `mdps/` and `window_*` hold the generated window-specific inputs and production workspaces.
 
-## Step 7: Run a Short Smoke Test
+For a fuller explanation of the scaffold layout, generated scripts, and per-window relaxation stages, see the [FEP Calculations guide](../user-guide/fep-calculations.md#generated-execution-scripts-and-configuration).
 
-Before full production, validate the scaffold with a short test:
+## Step 7: Choose an Execution Mode
 
-```bash
-export PRISM_MDRUN_NSTEPS=100
-bash run_fep.sh bound
-bash run_fep.sh unbound
-unset PRISM_MDRUN_NSTEPS
-```
-
-This is useful to validate:
-
-| Check | Why it matters |
-|---|---|
-| Hybrid topology | Confirms the scaffold is chemically coherent. |
-| Generated scripts | Confirms the execution layer was written correctly. |
-| Per-window grompp/mdrun setup | Confirms lambda-specific files and commands are valid. |
-| GPU and CPU allocation logic | Confirms runtime resource assignment behaves as expected. |
-
-!!! warning
-    `PRISM_MDRUN_NSTEPS` is only for infrastructure validation. Do not use these truncated runs for scientific free-energy estimation.
-
-## Step 8: Choose an Execution Mode
-
-PRISM currently supports two production modes.
+PRISM currently supports two production modes. The detailed execution model, resource behavior, and helper-script roles are documented in the [FEP Calculations guide](../user-guide/fep-calculations.md#production-modes).
 
 ### Standard mode
 
@@ -378,20 +359,19 @@ execution:
   num_gpus: 4
 ```
 
-Behavior:
+Summary:
 
 | Property | `repex` mode behavior |
 |---|---|
-| Helper script | PRISM writes `run_prod_repex.sh`. |
-| Launch style | Production is launched with `gmx_mpi -multidir`. |
+| Launch style | Production is launched with `gmx_mpi -multidir` across the generated `window_*` directories. |
 | Best for | Lambda replica exchange instead of independent windows. |
 
 !!! note
     `execution.parallel_windows` matters in `standard` mode. In `repex`, the main switch is `execution.mode: repex`.
 
-## Step 9: Run Full Production
+## Step 8: Run Full Production
 
-After the smoke test passes:
+After the scaffold and runtime configuration look correct:
 
 ```bash
 bash run_fep.sh bound
@@ -404,6 +384,8 @@ Or both legs at once:
 bash run_fep.sh all
 ```
 
+`run_fep.sh` also accepts replica-specific targets such as `bound1`, `unbound2`, and `bound1-3`. For the full target syntax and runtime environment overrides (`PRISM_FEP_MODE`, `PRISM_NUM_GPUS`, `PRISM_PARALLEL_WINDOWS`, `PRISM_OMP_THREADS`, `PRISM_TOTAL_CPUS`, and `PRISM_GPU_ID`), see the [Running FEP section](../user-guide/fep-calculations.md#running-fep).
+
 If your scaffold contains multiple replicas, the master script also supports:
 
 ```bash
@@ -412,7 +394,7 @@ bash run_fep.sh unbound2
 bash run_fep.sh bound1-3
 ```
 
-## Step 10: Monitor Progress
+## Step 9: Monitor Progress
 
 Examples:
 
@@ -431,7 +413,9 @@ What to check:
 | Window outputs | Each `window_*` directory produces `prod.*` and `dhdl.xvg`. |
 | Logs | Contain `Finished mdrun on rank 0`. |
 
-## Step 11: Analyze Completed Windows
+## Step 10: Analyze Completed Windows
+
+After production has created `dhdl.xvg` files, run the post-processing step:
 
 ```bash
 prism --fep-analyze \
@@ -446,7 +430,7 @@ prism --fep-analyze \
 !!! note
     `prism --fep-analyze` accepts either a single repeat directory or a leg directory containing `repeat*` subdirectories. If you pass `.../bound` and `.../unbound`, the CLI auto-discovers all repeats and performs aggregated analysis across them.
 
-This reads `dhdl.xvg` files from each `window_*` directory and computes binding free energies using three estimators:
+PRISM currently supports three standard estimators:
 
 | Estimator | What it does | When to use |
 |---|---|---|
@@ -454,21 +438,21 @@ This reads `dhdl.xvg` files from each `window_*` directory and computes binding 
 | **BAR** (Bennett Acceptance Ratio) | Compares neighboring window pairs | Standard FEP with adequate sampling |
 | **MBAR** (Multistate BAR) | Reweights all data simultaneously | Most efficient; provides overlap matrix for quality checks |
 
-### Analysis workflow
+The numerical analysis workflow is:
 
-1. Reads `dhdl.xvg` time series from each window
-2. Computes ΔG_bound and ΔG_unbound (with bootstrap error estimates)
-3. Calculates the binding free energy as
+1. read `dhdl.xvg` time series from each window
+2. compute $\Delta G_{\mathrm{bound}}$ and $\Delta G_{\mathrm{unbound}}$ with uncertainty estimates
+3. report binding free energy as
 
    $$
    \Delta G_{\mathrm{bind}} = \Delta G_{\mathrm{unbound}} - \Delta G_{\mathrm{bound}}
    $$
 
-4. Generates HTML report with overlap matrices and convergence plots
+4. generate an HTML report with overlap matrices, convergence plots, and estimator summaries
 
-## Step 12: Validate the Results
+## Step 11: Validate the Numerical Report
 
-Open the report:
+Open the generated report:
 
 ```bash
 firefox fep_results.html
@@ -480,7 +464,7 @@ This file is created only after running the analysis step. By default it is writ
   <img src="/assets/fep/analysis_html_example.png" alt="Example PRISM FEP analysis HTML report" width="100%">
 </p>
 
-Check:
+Use the numerical report to check:
 
 | Metric | What to look for |
 |---|---|
@@ -489,19 +473,14 @@ Check:
 | Convergence | Estimates stabilize as more data are accumulated. |
 | Uncertainty | Bootstrap error bars are reasonable for the sampling length. |
 
-This report serves a different purpose from `common/hybrid/mapping.html`:
-
-- `mapping.html` checks whether the scaffold and atom mapping are chemically sensible
-- `fep_results.html` (or another file chosen with `--output`) checks whether the simulation data are numerically well behaved
-
 In practice, this is the result-validation step. Use it to decide whether:
 
-- the reported $\Delta\Delta G$ is supported by adequate window overlap
+- the reported ΔΔG is supported by adequate window overlap
 - the estimate is stable rather than still drifting
 - the estimator choice materially changes the conclusion
 - additional sampling or a revised lambda schedule is needed
 
-**Result-validation checkpoint:** do not interpret $\Delta\Delta G$ without checking overlap, convergence, and estimator agreement.
+**Result-validation checkpoint:** do not interpret ΔΔG without checking overlap, convergence, and estimator agreement.
 
 ## Common Questions
 
@@ -557,7 +536,7 @@ These are the most important knobs:
 
 - inspect `common/hybrid/hybrid.itp` and `common/hybrid/mapping.html`
 - inspect `build/em.log`, `build/nvt.log`, and `build/npt.log`
-- rerun a smoke test before attempting long production
+- rerun a short validation run before attempting long production if you have changed the scaffold or runtime settings substantially
 
 ### Analysis CLI finds no windows
 

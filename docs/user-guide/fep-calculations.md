@@ -14,6 +14,8 @@ PRISM automates **Free Energy Perturbation (FEP)** calculations for relative bin
 
 If you want the full YAML parameter reference, jump directly to [FEP YAML Reference](#fep-yaml-reference).
 
+For a step-by-step worked example, see the [FEP Tutorial](../tutorials/fep-tutorial.md).
+
 ## Overview
 
 PRISM's FEP workflow consists of five stages:
@@ -164,19 +166,19 @@ prism protein.pdb ligand_ref.mol2 -o fep_output \
 
 PRISM then:
 
-1. maps the ligand pair and generates the mapping report
-2. builds the hybrid topology and `hybrid.gro`
-3. prepares the **bound** leg (protein + hybrid ligand)
-4. prepares the **unbound** leg (hybrid ligand in solvent), reusing the bound-leg box vectors so the two legs are scaffolded with the same box dimensions
+1. **maps the ligand pair and writes the mapping report** - PRISM aligns the reference and mutant ligands, classifies atoms as common / transformed / surrounding, and writes `common/hybrid/mapping.html`. This is the first model-quality checkpoint, before any MD is run.
+2. **builds the hybrid ligand files** - PRISM writes the hybrid topology (`hybrid.itp`), coordinates (`hybrid.gro`), and supporting includes in `common/hybrid/`. These files define the A/B-state ligand used in both legs.
+3. **prepares the bound leg** - PRISM inserts the hybrid ligand into the protein system, then writes the leg-specific input structure, topology, MDP files, and execution scripts needed for EM, NVT, NPT, and production windows.
+4. **prepares the unbound leg** - PRISM builds the solvated hybrid-ligand system and reuses the bound-leg box vectors so the two legs start from the same box dimensions.
 
 ### Generated Execution Scripts and Configuration
 
 PRISM then generates the execution environment for both legs:
 
-1. **writes per-leg helper scripts** - `run_prod_standard.sh` and `run_prod_repex.sh` for each leg
-2. **writes a root-level `run_fep.sh`** - creates the master execution script that drives the entire workflow
-3. **writes per-window MDPs** - generates lambda-specific MDP files for each window
-4. **writes `fep_scaffold.json`** - a scaffold manifest for inspection/debugging (the normal run path does not currently depend on reading it back)
+1. **writes per-leg helper scripts** - `run_prod_standard.sh` launches the production windows as independent jobs for that leg, while `run_prod_repex.sh` launches lambda replica exchange for that leg using the generated window directories.
+2. **writes a root-level `run_fep.sh`** - this is the entry point most users run. It executes leg-level EM/NVT/NPT first, then dispatches production through either `run_prod_standard.sh` or `run_prod_repex.sh` according to `execution.mode`.
+3. **writes per-window MDPs** - PRISM generates lambda-specific `em_short`, `npt_short`, and `prod` MDPs so each window receives its own short relaxation before production.
+4. **writes `fep_scaffold.json`** - a scaffold manifest for inspection/debugging; it records the generated layout and key metadata, but the normal run path does not rely on reading it back.
 
 ### Execution Workflow
 
@@ -196,14 +198,25 @@ The generated per-window MDPs currently include:
 
 | MDP item | Current behavior |
 |---|---|
-| `init-lambda-state` | Set to the current window index. |
-| `calc-lambda-neighbors` | `-1` in window-level equilibration and production templates. |
+| [`init-lambda-state`](https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-init-lambda-state) | Set to the current window index. |
+| [`calc-lambda-neighbors`](https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-calc-lambda-neighbors) | `-1` in window-level equilibration and production templates. |
 | Lambda vectors | Explicit `coul-lambdas`, `vdw-lambdas`, `bonded-lambdas`, and `mass-lambdas` are written. |
-| Soft-core settings | `sc-alpha` and `sc-sigma` are included in the generated templates. |
+| Soft-core settings | [`sc-alpha`](https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-sc-alpha) and [`sc-sigma`](https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-sc-sigma) are included in the generated templates. |
 
-For the current GROMACS description of these free-energy controls, see the free-energy implementation and interaction chapters.[^gmx-free-energy-impl] [^gmx-free-energy-interactions]
+For the current GROMACS description of these free-energy controls, see the molecular dynamics parameter reference for `.mdp` options, together with the free-energy implementation and interaction chapters.[^gmx-mdp-options] [^gmx-free-energy-impl] [^gmx-free-energy-interactions]
+
+### Production Modes
+
+`run_fep.sh` chooses the production helper according to `execution.mode` after leg-level EM, NVT, and NPT finish.
+
+| Mode | What PRISM does | When to use it |
+|---|---|---|
+| `standard` | Launches each lambda window as an independent production job for that leg. `parallel_windows` controls how many windows run at once, and GPUs are assigned round-robin across active windows. | The default choice for straightforward throughput-oriented runs. |
+| `repex` | Launches the generated `window_*` directories in lambda replica-exchange mode with `gmx_mpi -multidir`. | Use when you want exchange between neighboring lambda states instead of fully independent windows. |
 
 ## Running FEP
+
+The generated `run_fep.sh` script accepts one or more **targets**. If you call it with no arguments, it defaults to `all`.
 
 ```bash
 cd fep_output/GMX_PROLIG_FEP
@@ -213,134 +226,91 @@ bash run_fep.sh unbound
 bash run_fep.sh all
 ```
 
-If the scaffold contains multiple replicas, the root script also supports:
+### Target forms
+
+| Target form | Meaning |
+|---|---|
+| `bound` | Run the bound leg. If multiple replicas exist, this expands to all bound replicas. |
+| `unbound` | Run the unbound leg. If multiple replicas exist, this expands to all unbound replicas. |
+| `all` | Run all configured bound and unbound legs or replicas. |
+| `bound1` / `unbound2` | Run one specific replica. |
+| `bound1-3` | Run a replica range for one leg. |
+| `bound1 unbound3` | Run multiple explicit targets in one command. |
+
+Examples:
 
 ```bash
 bash run_fep.sh bound1
 bash run_fep.sh unbound2
 bash run_fep.sh bound1-3
+bash run_fep.sh bound1 unbound1
 ```
 
-### Production Modes
+### Runtime environment variables
 
-| Mode | Meaning | Notes |
-|---|---|---|
-| `standard` | Run windows independently. | `parallel_windows` controls concurrency; GPUs are assigned round-robin across windows. |
-| `repex` | Run lambda replica exchange. | PRISM writes `run_prod_repex.sh` and launches production with `gmx_mpi -multidir`. |
+The following overrides are mainly useful when you need to adapt the generated scripts to the resources available on a specific machine.
+
+| Variable | Meaning |
+|---|---|
+| `PRISM_FEP_MODE` | Overrides `execution.mode` at runtime (`standard` or `repex`). |
+| `PRISM_NUM_GPUS` | Overrides the production GPU pool size used by `run_prod_standard.sh` or `run_prod_repex.sh`. |
+| `PRISM_PARALLEL_WINDOWS` | Overrides the number of concurrent windows in `standard` mode. |
+| `PRISM_OMP_THREADS` | Explicitly sets the OpenMP thread count used by the generated scripts. |
+| `PRISM_TOTAL_CPUS` | Sets a total CPU budget; if `PRISM_OMP_THREADS` and `OMP_NUM_THREADS` are unset, PRISM derives threads per worker from this value. |
+| `PRISM_GPU_ID` | Forces a specific physical GPU for the current `run_fep.sh` invocation during leg-level EM/NVT/NPT. Production windows still use the generated production helper scripts and their own GPU pool logic. |
+| `PRISM_CPU_OFFSET` | Forces the CPU pin offset used for the current leg during leg-level EM/NVT/NPT. |
+| `PRISM_MDRUN_UPDATE_MODE` | Overrides update placement for GPU runs (`gpu`, `cpu`, or `none`). |
+| `OMP_NUM_THREADS` | Generic OpenMP override; PRISM uses it unless `PRISM_OMP_THREADS` is set. |
+
+Typical examples:
+
+```bash
+# Force repex for this run, even if the scaffold was generated with standard mode
+PRISM_FEP_MODE=repex bash run_fep.sh bound
+
+# Limit production to two GPUs and two concurrent windows
+PRISM_NUM_GPUS=2 PRISM_PARALLEL_WINDOWS=2 bash run_fep.sh bound
+
+# Derive threads from a total CPU budget
+PRISM_TOTAL_CPUS=32 PRISM_NUM_GPUS=4 bash run_fep.sh all
+
+# Pin leg-level equilibration to one specific GPU
+PRISM_GPU_ID=2 bash run_fep.sh unbound
+```
 
 ## Analysis
 
-PRISM generates two different HTML outputs in a typical FEP workflow:
+In practice, PRISM FEP produces **two different kinds of HTML outputs**, but they belong to different stages of the workflow and should be read separately.
 
-1. `common/hybrid/mapping.html`
-   - generated during scaffold construction
-   - used to inspect atom correspondence, transformed/surrounding/common classes, charges, and the hybridization result before running MD
-2. `fep_analysis_report.html` or `fep_multi_estimator_report.html`
-   - generated after production analysis
-   - used to inspect overlap matrices, convergence behavior, repeat statistics, and estimator agreement
+### Mapping Report (pre-MD quality check)
 
-The two reports answer different questions: `mapping.html` checks whether the hybrid system is chemically and topologically sensible, while the analysis report checks whether the resulting FEP simulation is numerically well behaved.
-
-PRISM analyzes FEP results using three established free energy estimators:
-
-| Estimator | Full Name | Description | Use Case |
-|---|---|---|---|
-| **TI** | Thermodynamic Integration | Numerical integration of ∂H/∂λ across windows | Good for smooth transformations with well-sampled gradients |
-| **BAR** | Bennett Acceptance Ratio | Optimal overlap between neighboring windows | Robust for standard FEP with adequate sampling |
-| **MBAR** | Multistate BAR | Uses all data simultaneously with reweighting | Most efficient; provides overlap matrix for quality control |
-
-### Analysis workflow
-
-1. PRISM reads `dhdl.xvg` files from each `window_*` directory (contains ∂H/∂λ time series)
-2. For each leg (bound/unbound), computes ΔG and uncertainty using the selected estimator(s)
-3. Binding free energy is reported as
-
-   $$
-   \Delta G_{\mathrm{bind}} = \Delta G_{\mathrm{unbound}} - \Delta G_{\mathrm{bound}}
-   $$
-
-4. Bootstrap analysis provides error estimates (controlled by `--bootstrap-n-jobs`)
-5. HTML report includes overlap matrices, convergence plots, and estimator comparison
-
-### HTML Reports
-
-#### Mapping Report
-
-PRISM writes a mapping report as `common/hybrid/mapping.html` during scaffold construction.
-
-You should expect this file to appear as soon as the scaffold has been built, before any MD is run.
+PRISM writes `common/hybrid/mapping.html` during scaffold construction, before any MD is launched.
 
 Use this report to inspect:
 
-- whether the common core is chemically local and reasonable
-- whether transformed atoms are where you expect them to be
-- whether charges and atom labels look plausible
-- whether any obviously incorrect long-range swaps or unknown atoms appear
+- atom correspondence between the reference and mutant ligands
+- common / transformed / surrounding classifications
+- charge patterns and atom labels
+- whether the hybridization result looks chemically local and sensible
 
 The report contains:
 
-- a top control bar for coloring mode, charge display, atom labels, and export
-- two aligned ligand views so the mapped atoms can be compared side by side
-- a legend summarizing common, transformed, and surrounding atoms
-- an atom-detail table that lists the correspondence and classification for both ligands
-
-This is the first checkpoint in the workflow. If the mapping report looks chemically wrong, there is no value in proceeding to production runs.
-
-**First checkpoint:** verify the mapping report before starting EM/NVT/NPT or production windows.
+- a control bar for coloring mode, charge display, atom labels, and export
+- two aligned ligand views for side-by-side inspection
+- a legend summarizing the FEP atom classes
+- an atom-detail table listing the correspondence for both ligands
 
 <p align="center">
   <img src="/assets/fep/mapping_html_example.png" alt="Example PRISM mapping HTML report" width="100%">
 </p>
 
-*Example mapping report showing classification controls, aligned ligands, and the atom-detail table.*
+*Example mapping report generated during scaffold construction.*
 
-#### Analysis Report
+This is the first checkpoint in the workflow. If the mapping report looks chemically wrong, fix the transformation before running EM/NVT/NPT or production windows.
 
-After the simulation has produced window-level `dhdl.xvg` files, `prism --fep-analyze` generates an HTML analysis report. For a single estimator this is typically `fep_analysis_report.html`; for multi-estimator comparison it is often named `fep_multi_estimator_report.html`, although the exact filename is controlled by `--output`.
+### Numerical Analysis Report (post-MD validation)
 
-This file appears only after analysis has been run. In typical usage, place it in the `GMX_PROLIG_FEP/` root or another user-chosen output location via `--output`.
-
-Use this report to inspect:
-
-- $\Delta G$ and $\Delta\Delta G$ summary values
-- overlap quality between neighboring windows
-- convergence over time
-- bootstrap uncertainty
-- repeat-to-repeat consistency
-- agreement or divergence between TI, BAR, and MBAR
-
-The report typically contains:
-
-- a summary panel with $\Delta G$ for each leg and the final $\Delta\Delta G$ estimate
-- a comparison table when several estimators are requested
-- free-energy profile plots across λ
-- time-convergence diagnostics
-- overlap information for quality control
-- bootstrap and repeat-level statistics when available
-
-<p align="center">
-  <img src="/assets/fep/analysis_html_example.png" alt="Example PRISM FEP analysis HTML report" width="100%">
-</p>
-
-*Example analysis report showing estimator comparison, convergence diagnostics, overlap information, and repeat-level statistics.*
-
-This report is the main result-validation checkpoint. In practice, users should examine:
-
-- whether neighboring windows overlap well enough for reweighting-based estimators
-- whether the free-energy estimate stabilizes rather than drifting steadily with simulation time
-- whether TI, BAR, and MBAR broadly agree
-- whether repeat-to-repeat spread is acceptable for the intended claim
-
-If these diagnostics look poor, the remedy is usually to improve sampling, adjust lambda spacing, or revisit the mapped transformation rather than accepting the $\Delta\Delta G$ value at face value.
-
-**Result-validation checkpoint:** do not interpret a reported $\Delta\Delta G$ without checking overlap, convergence, and estimator agreement.
-
-### Analysis backends
-
-- `alchemlyb` (default): Python library supporting TI/BAR/MBAR; required for multi-estimator mode
-- `gmx_bar`: Native GROMACS `gmx bar` command; BAR-only, useful for validation
-
-Example:
+After production has generated `dhdl.xvg` files for the windows, run `prism --fep-analyze` to build the numerical free-energy report.
 
 ```bash
 prism --fep-analyze \
@@ -353,7 +323,41 @@ prism --fep-analyze \
 ```
 
 !!! note
-    `prism --fep-analyze` accepts either a single repeat directory (`bound/repeat1`, `unbound/repeat1`) or a leg directory containing `repeat*` subdirectories. When given the leg directory, the CLI now auto-discovers all repeats and performs aggregated analysis across them.
+    `prism --fep-analyze` accepts either a single repeat directory (`bound/repeat1`, `unbound/repeat1`) or a leg directory containing `repeat*` subdirectories. When given the leg directory, the CLI auto-discovers all repeats and performs aggregated analysis across them.
+
+PRISM currently supports three standard estimators:
+
+| Estimator | Full Name | Description | Use Case |
+|---|---|---|---|
+| **TI** | Thermodynamic Integration | Numerical integration of ∂H/∂λ across windows | Good for smooth transformations with well-sampled gradients |
+| **BAR** | Bennett Acceptance Ratio | Optimal overlap between neighboring windows | Robust for standard FEP with adequate sampling |
+| **MBAR** | Multistate BAR | Uses all data simultaneously with reweighting | Most efficient; provides overlap matrix for quality control |
+
+The analysis workflow is:
+
+1. read `dhdl.xvg` files from each `window_*` directory
+2. compute ΔG for the bound leg and the unbound leg
+3. report binding free energy as `ΔG_bind = ΔG_unbound - ΔG_bound`
+4. estimate uncertainty by bootstrap resampling when requested
+5. generate an HTML report with overlap matrices, convergence plots, and estimator summaries
+
+The generated HTML file is often named `fep_results.html`, `fep_analysis_report.html`, or `fep_multi_estimator_report.html`, depending on your command and output naming.
+
+Use the numerical report to inspect:
+
+- ΔG and ΔΔG summary values
+- overlap matrices between neighboring windows
+- convergence behavior over time
+- repeat statistics when multiple repeats are analyzed together
+- agreement or disagreement between TI, BAR, and MBAR
+
+<p align="center">
+  <img src="/assets/fep/analysis_html_example.png" alt="Example PRISM FEP analysis HTML report" width="100%">
+</p>
+
+*Example numerical FEP analysis report generated after production and post-processing.*
+
+Treat this as the result-validation checkpoint. Do not interpret a reported free energy without checking overlap, convergence, and estimator agreement.
 
 ## FEP YAML Reference
 
@@ -397,7 +401,6 @@ block-beta
     style J fill:#f8f9fb,stroke:#7a869a,stroke-width:1px,color:#111
 ```
 
-Mermaid flowcharts do not provide a true radial layout. This map therefore uses Mermaid's block diagram syntax to keep a center node with sections above and below while preserving outward arrows.[^mermaid-block]
 
 ### Example `fep.yaml`
 
@@ -459,7 +462,7 @@ replicas: 1
 
 | Mode | Meaning |
 |---|---|
-| `ref` | Keep the reference ligand (state A) charge on common atoms. |
+| `ref` | Keep the reference ligand (state A) charge on common atoms. Works when optimizing a lead compound. |
 | `mut` | Use the mutant ligand (state B) charge on common atoms. |
 | `mean` | Average the A/B charges on common atoms. This is the default because it usually reduces the electrostatic perturbation. |
 | `none` | Keep the original per-state charges without averaging common atoms. |
@@ -559,12 +562,12 @@ Reference: see the current GROMACS free-energy implementation and interaction ch
 ## References
 
 [^gmx-current]: [GROMACS current manual](https://manual.gromacs.org/current/).
+[^gmx-mdp-options]: [GROMACS current manual, *Molecular dynamics parameters (.mdp options)*](https://manual.gromacs.org/current/user-guide/mdp-options.html).
 [^gmx-free-energy-impl]: [GROMACS current reference manual, *Free energy implementation*](https://manual.gromacs.org/current/reference-manual/special/free-energy-implementation.html).
 [^gmx-free-energy-interactions]: [GROMACS current reference manual, *Free-energy interactions*](https://manual.gromacs.org/current/reference-manual/functions/free-energy-interactions.html).
 [^gmx-grompp]: [GROMACS current online help, `gmx grompp`](https://manual.gromacs.org/current/onlinehelp/gmx-grompp.html).
 [^gmx-2026-fe-gpu]: [GROMACS 2026.0 release notes, *Performance improvements*: CUDA support for perturbed non-bonded free-energy kernels on GPU](https://manual.gromacs.org/documentation/2026.0/release-notes/2026/major/performance.html).
 [^gmx-2026-fe-gpu-fixes]: [GROMACS 2026.1 release notes: fixes for perturbed non-bonded interactions on GPU](https://manual.gromacs.org/current/release-notes/2026/2026.1.html).
-[^mermaid-block]: [Mermaid block diagrams](https://mermaid.js.org/syntax/block.html).
 
 ## Troubleshooting
 
@@ -578,7 +581,7 @@ Reference: see the current GROMACS free-energy implementation and interaction ch
 
 - inspect leg-level `build/em.log`, `build/nvt.log`, and `build/npt.log`
 - inspect the hybrid files in `common/hybrid/`
-- rerun a smoke test before launching long production
+- rerun a short validation run before launching long production if you have changed the scaffold or runtime settings substantially
 
 ### Analysis finds no windows
 
@@ -594,11 +597,10 @@ Reference: see the current GROMACS free-energy implementation and interaction ch
 - In `standard` mode, generated scripts assign GPUs round-robin across windows and use `-pinoffset` to separate CPU blocks between GPU workers.
 - If `execution.total_cpus` is set, PRISM derives `omp_threads` from the available CPU budget; `execution.omp_threads` acts as a manual override.
 - GPU PME is enabled by default in generated production helpers, but GPU-side update is not enabled by default because FEP mass-perturbation workflows are not generally compatible with `-update gpu`.
-- **Do not** treat `PRISM_MDRUN_NSTEPS` smoke tests as scientific production runs.
 - With CUDA builds of **GROMACS 2026.0+**, perturbed non-bonded free-energy kernels can also run on the GPU, so PRISM's default GPU production path may benefit automatically from newer GROMACS releases even while `use_gpu_update` remains disabled by default.[^gmx-2026-fe-gpu] [^gmx-2026-fe-gpu-fixes]
 
 ## See Also
 
-- [FEP Tutorial](../tutorials/fep-tutorial.md)
-- [Analysis Tools](analysis-tools.md)
-- [Configuration](configuration.md)
+- [FEP Tutorial](../tutorials/fep-tutorial.md) — a step-by-step worked example that walks through scaffold generation, production setup, and analysis.
+- [Analysis Tools](analysis-tools.md) — command-line and report-oriented guidance for inspecting trajectories, energies, convergence, and related post-processing outputs.
+- [Configuration](configuration.md) — the broader PRISM configuration reference beyond the FEP-specific `fep.yaml` options documented here.
