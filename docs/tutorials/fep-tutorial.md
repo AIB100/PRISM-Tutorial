@@ -11,7 +11,7 @@ This tutorial walks through the current PRISM FEP workflow using the **42-38** H
 You will learn how to:
 
 - prepare a ligand pair for PRISM FEP
-- inspect atom mapping and the hybrid topology
+- inspect atom mapping and the single topology
 - understand how PRISM transforms the system across lambda windows
 - run the generated bound and unbound legs
 - choose between `standard` and `repex` execution
@@ -236,7 +236,7 @@ prism input/receptor.pdb input/42.mol2 -o amber14sb_OL15-mut_gaff2 \
 Expected outputs:
 
 - `amber14sb_OL15-mut_gaff2/GMX_PROLIG_FEP/`
-- `common/hybrid/` with hybrid topology and mapping artifacts
+- `common/hybrid/` with single topology and mapping artifacts
 - `bound/repeat1/ ... repeat3/` and `unbound/repeat1/ ... repeat3/` (because this example uses `replicas: 3`)
 - root-level `run_fep.sh`
 - `fep_scaffold.json`
@@ -276,7 +276,7 @@ Use this report to inspect:
 - atom correspondence before any MD is run
 - transformed, surrounding, and common classes in a chemically local context
 - atom labels and charges if the mapping looks suspicious
-- whether the hybrid topology is worth testing further
+- whether the single topology is worth testing further
 
 The mapping report contains:
 
@@ -602,7 +602,7 @@ These are the most important knobs:
 You have now:
 
 - built a PRISM FEP scaffold for the 42-38 pair
-- inspected the atom mapping and hybrid topology
+- inspected the atom mapping and single topology
 - understood how PRISM transforms Coulomb and VDW terms across lambda windows
 - run the production entry points
 - seen the main execution and analysis options exposed to users
